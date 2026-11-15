@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens (06-ui-ux/UI_UX_GUIDELINES.md): calm neutrals, deep navy/charcoal,
+ * one configurable accent. Screens use these tokens, never hardcoded colours.
+ */
+:root {
+  --background: #f7f7f5;
+  --surface: #ffffff;
+  --surface-muted: #f1f1ee;
+  --foreground: #1c2331;
+  --muted-foreground: #5b6474;
+  --border: #e2e2dd;
+  --primary: #1f2a44; /* deep navy */
+  --primary-foreground: #ffffff;
+  --accent: #b08d57; /* configurable per tenant later */
+  --accent-foreground: #ffffff;
+  --danger: #b42318;
+  --danger-surface: #fef3f2;
+  --success: #067647;
+  --success-surface: #ecfdf3;
+  --warning: #93370d;
+  --warning-surface: #fffaeb;
+  --ring: #3b5bdb;
+  --radius: 0.625rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f131b;
+    --surface: #171c27;
+    --surface-muted: #1e2431;
+    --foreground: #e8eaee;
+    --muted-foreground: #a0a8b8;
+    --border: #2a3142;
+    --primary: #d9dfec;
+    --primary-foreground: #121722;
+    --accent: #c9a56f;
+    --accent-foreground: #121722;
+    --danger: #f97066;
+    --danger-surface: #2a1513;
+    --success: #47cd89;
+    --success-surface: #0f2419;
+    --warning: #fdb022;
+    --warning-surface: #2a1f0a;
+    --ring: #91a7ff;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --color-danger-surface: var(--danger-surface);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-ring: var(--ring);
+  --radius-ui: var(--radius);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

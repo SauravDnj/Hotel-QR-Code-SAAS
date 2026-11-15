@@ -1,0 +1,19 @@
+{
+  "project": "Hotel SaaS Platform",
+  "version": "1.0",
+  "file_count": 36,
+  "top_level_folders": [
+    "01-product",
+    "02-architecture",
+    "03-data",
+    "04-workflows",
+    "05-security",
+    "06-ui-ux",
+    "07-delivery",
+    "08-deployment",
+    "09-commercial",
+    "README.md",
+    "Zprompt"
+  ],
+  "note": "Working name only; final brand name not selected."
+}
