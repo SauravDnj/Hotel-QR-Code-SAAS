@@ -54,7 +54,13 @@ export function propertyScope(ctx: TenantContext, permission: PermissionKey): "a
   return [...ids];
 }
 
+
 const WRITABLE: TenantStatus[] = ["trialing", "active", "past_due"];
+
+/** UI helper: show edit controls only when the server would allow the write. */
+export function canWrite(ctx: TenantContext, permission: PermissionKey, scope: ResourceScope = {}): boolean {
+  return WRITABLE.includes(ctx.tenantStatus) && can(ctx, permission, scope);
+}
 
 /** Suspended/cancelled tenants keep read access but cannot change operational data. */
 export function assertTenantWritable(ctx: TenantContext): void {

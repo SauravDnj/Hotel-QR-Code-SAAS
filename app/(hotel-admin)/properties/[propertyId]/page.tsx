@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PermissionDenied } from "@/components/permission-denied";
-import { Alert, PageHeader } from "@/components/ui/card";
+import { Alert } from "@/components/ui/card";
 import { requireTenantContext } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { AppError } from "@/lib/errors";
@@ -42,8 +42,8 @@ export default async function PropertyPage({
 
   return (
     <>
-      <PageHeader title={property.name} description="Property settings" />
-      {saved && <Alert tone="success" className="mb-4">Property created.</Alert>}
+      <h2 className="mb-4 text-lg font-semibold">Property settings</h2>
+      {saved && <Alert tone="success" className="mb-4">Property created. Next, add floors and room types, then rooms.</Alert>}
       <PropertyForm
         action={updatePropertyAction.bind(null, property.id)}
         initial={{

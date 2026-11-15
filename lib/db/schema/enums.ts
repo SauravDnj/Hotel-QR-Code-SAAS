@@ -19,5 +19,26 @@ export const membershipStatus = pgEnum("membership_status", [
   "disabled",
 ]);
 
+// Three independent room dimensions (PRD §5): occupancy is derived from stays (Phase 6),
+// operational and housekeeping status are stored here and never conflated.
+export const roomOperationalStatus = pgEnum("room_operational_status", [
+  "active",
+  "out_of_order",
+  "maintenance",
+  "inactive",
+]);
+
+export const housekeepingStatus = pgEnum("housekeeping_status", [
+  "clean",
+  "dirty",
+  "in_progress",
+  "inspected",
+  "blocked",
+]);
+
+export const departmentStatus = pgEnum("department_status", ["active", "inactive"]);
+
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];
+export type RoomOperationalStatus = (typeof roomOperationalStatus.enumValues)[number];
+export type HousekeepingStatus = (typeof housekeepingStatus.enumValues)[number];
 export type PropertyStatus = (typeof propertyStatus.enumValues)[number];

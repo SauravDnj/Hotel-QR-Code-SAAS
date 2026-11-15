@@ -8,7 +8,8 @@ import type { PermissionKey } from "@/lib/permissions/catalog";
 
 const NAV: { href: string; label: string; permission?: PermissionKey }[] = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/properties", label: "Properties", permission: "property.view" },
+  { href: "/rooms", label: "Rooms" },
+  { href: "/properties", label: "Properties" },
   { href: "/settings", label: "Hotel settings", permission: "tenant.manage" },
   { href: "/audit", label: "Audit log", permission: "audit.view" },
 ];

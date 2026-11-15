@@ -3,7 +3,7 @@
 Multi-tenant hotel guest-services and operations SaaS. Product and engineering docs are in
 [`hotel-saas-documentation/`](hotel-saas-documentation/README.md), which is the source of truth.
 
-**Current status:** Phase 0 (foundation) and Phase 1 (SaaS & tenant foundation) of
+**Current status:** Phases 0–2 complete (foundation, SaaS & tenancy, hotel structure) of
 [`ROADMAP_AND_PHASES.md`](hotel-saas-documentation/07-delivery/ROADMAP_AND_PHASES.md).
 
 ## Stack
@@ -20,7 +20,8 @@ auth.ts              Auth.js configuration
 components/          UI primitives (components/ui) and shared form pieces
 lib/                 auth, db (schema + client), permissions (catalog + authorize), rate-limit,
                      validation, observability, env
-modules/             Domain services: tenants, properties, platform, audit, rbac
+modules/             Domain services: tenants, properties, platform, audit, rbac,
+                     rooms (floors, room types, rooms, status history), departments
 drizzle/             Generated SQL migrations (committed, reviewed)
 scripts/             seed (RBAC sync), create-platform-admin
 tests/               unit, integration (in-process Postgres via PGlite), e2e (Playwright)
@@ -60,6 +61,17 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
 - **Migrations are not run by the build.** Before pushing a schema change, run
   `pnpm db:migrate && pnpm db:seed` against the target database.
 - Health check: `GET /api/health` returns `{"status":"ok"}` when the database is reachable.
+
+## Hotel structure (Phase 2)
+
+- Property → floors, room types, rooms, departments (`/properties/[id]/…` tabs).
+- Rooms have three independent dimensions: **operational** (`active`, `out_of_order`, `maintenance`,
+  `inactive`; needs `room.manage`), **housekeeping** (`clean`, `dirty`, `in_progress`, `inspected`, `blocked`;
+  needs `housekeeping.manage`) and occupancy (derived from stays in Phase 6). Every change is logged in
+  `room_status_history`.
+- Room codes are unique per property (case-insensitive) among live rooms; archived rooms free their code.
+- Composite foreign keys force rooms, floors, types and history rows to share one property and tenant.
+- Bulk creation of up to 200 rooms per range, all-or-nothing.
 
 ## Security model (Phase 1)
 

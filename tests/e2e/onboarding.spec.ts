@@ -1,4 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
+import { resetLoopbackRateLimits } from "./helpers";
+
+test.beforeEach(resetLoopbackRateLimits);
 
 const unique = () => `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 

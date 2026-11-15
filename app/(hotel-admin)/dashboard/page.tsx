@@ -50,9 +50,16 @@ export default async function DashboardPage() {
       ) : (
         <Card>
           <ol className="list-decimal space-y-2 pl-5 text-sm">
-            <li>Check your property timezone and currency in Properties.</li>
-            <li>Floors, room categories and rooms arrive in the next release (Phase 2).</li>
-            <li>Room QR codes and the guest portal follow in Phase 3.</li>
+            {props.map((p) => (
+              <li key={p.id}>
+                <span className="font-medium">{p.name}:</span> add{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/floors`}>floors</Link>,{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/room-types`}>room types</Link>,{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/rooms`}>rooms</Link> and{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/departments`}>departments</Link>.
+              </li>
+            ))}
+            <li className="text-muted-foreground">Room QR codes and the guest portal arrive in the next release (Phase 3).</li>
           </ol>
         </Card>
       )}
