@@ -19,4 +19,4 @@ export const notFound = (msg = "Not found.") => new AppError(msg, "not_found");
 export const conflict = (msg: string) => new AppError(msg, "conflict");
 
 export const rateLimited = () =>
-  new AppError("Too many attempts. Please wait a moment and try again.", "rate_limited");
+  new AppError("Too many attempts from this network. Please try again later.", "rate_limited");

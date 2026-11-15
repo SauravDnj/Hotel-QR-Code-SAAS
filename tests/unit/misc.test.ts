@@ -17,6 +17,11 @@ describe("env validation", () => {
     expect(parseServerEnv(valid).DATABASE_URL).toBe(valid.DATABASE_URL);
   });
 
+  it("falls back to the Vercel deployment URL for previews", () => {
+    const env = parseServerEnv({ ...valid, APP_URL: undefined, VERCEL_URL: "hotel-abc.vercel.app" });
+    expect(env.APP_URL).toBe("https://hotel-abc.vercel.app");
+  });
+
   it("names the missing variable without printing secret values", () => {
     const run = () => parseServerEnv({ ...valid, AUTH_SECRET: "short-secret-value" });
     expect(run).toThrow(/AUTH_SECRET/);

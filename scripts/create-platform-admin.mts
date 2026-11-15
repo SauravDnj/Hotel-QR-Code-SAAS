@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 import { users } from "../lib/db/schema";
 import { hashPassword, normalizeEmail, PASSWORD_MIN_LENGTH } from "../lib/auth/password";
 import { writeAudit } from "../modules/audit/service";
-import { scriptDb } from "./db";
+import { scriptDb } from "./db.mts";
 
 const { values } = parseArgs({
   options: { email: { type: "string" }, name: { type: "string" } },

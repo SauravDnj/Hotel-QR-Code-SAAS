@@ -49,6 +49,18 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
 | `pnpm db:migrate` | Apply migrations (run once per release, never at runtime) |
 | `pnpm db:seed` | Sync RBAC catalogue |
 
+## Deployment (Vercel + Neon)
+
+- Vercel project `hotel-qr-code-saas` is connected to this GitHub repo: every push to `main` deploys
+  to production, and other branches get preview deployments.
+- Functions run in `iad1` (`vercel.json`), next to the Neon database in `us-east-1`.
+- Environment variables are managed in Vercel → Project → Settings → Environment Variables:
+  `DATABASE_URL` (Neon integration, pooled), `DIRECT_URL`, `AUTH_SECRET` (separate per environment),
+  `APP_URL` (production only; previews fall back to `VERCEL_URL`).
+- **Migrations are not run by the build.** Before pushing a schema change, run
+  `pnpm db:migrate && pnpm db:seed` against the target database.
+- Health check: `GET /api/health` returns `{"status":"ok"}` when the database is reachable.
+
 ## Security model (Phase 1)
 
 - **Tenant isolation:** the tenant always comes from the signed-in user's active membership

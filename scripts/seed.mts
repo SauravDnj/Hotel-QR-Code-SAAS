@@ -1,5 +1,5 @@
 import { seedRbac } from "../modules/rbac/seed";
-import { scriptDb } from "./db";
+import { scriptDb } from "./db.mts";
 
 const { db, close } = scriptDb();
 try {
