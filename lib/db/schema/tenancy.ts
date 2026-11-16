@@ -30,6 +30,8 @@ export const tenants = pgTable("tenants", {
   currency: char("currency", { length: 3 }).notNull(),
   locale: text("locale").notNull().default("en"),
   contactEmail: text("contact_email").notNull(),
+  /** Set when a SaaS operator suspends the tenant; billing events never lift it. */
+  platformHold: boolean("platform_hold").notNull().default(false),
   ...timestamps,
 });
 

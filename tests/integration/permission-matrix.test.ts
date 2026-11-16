@@ -18,6 +18,8 @@ import { createRole } from "@/modules/staff/roles";
 import { createInvitation, listStaff } from "@/modules/staff/service";
 import { updateTenantSettings } from "@/modules/tenants/settings";
 import { startCleaning } from "@/modules/housekeeping/service";
+import { getBillingOverview } from "@/modules/billing/service";
+import { propertyReport } from "@/modules/reports/service";
 import { checkIn, listInHouse } from "@/modules/stays/service";
 import { addStaff, createTenantFixture, createTestDb, type TenantFixture } from "../helpers/db";
 
@@ -125,6 +127,8 @@ describe("role / scope permission matrix", () => {
         return startCleaning(db, c, T.propertyId, r);
       },
     },
+    { name: "view billing", allowed: ["owner", "manager"], run: (c) => getBillingOverview(db, c) },
+    { name: "view reports", allowed: ["owner", "manager"], run: (c) => propertyReport(db, c, T.propertyId, {}) },
   ];
 
   const ctxFor: Partial<Record<SystemRoleKey, { wide: TenantContext; elsewhere: TenantContext }>> = {};

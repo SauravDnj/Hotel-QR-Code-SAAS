@@ -61,6 +61,9 @@ export const stayStatus = pgEnum("stay_status", ["checked_in", "checked_out"]);
 export const housekeepingTaskType = pgEnum("housekeeping_task_type", ["cleaning", "inspection"]);
 export const housekeepingTaskStatus = pgEnum("housekeeping_task_status", ["open", "in_progress", "done", "cancelled"]);
 
+// Billing lifecycle (SAAS_BILLING.md). Mirrors tenant_status values so access can follow billing.
+export const subscriptionStatus = pgEnum("subscription_status", ["trialing", "active", "past_due", "suspended", "cancelled"]);
+
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];
 export type RoomOperationalStatus = (typeof roomOperationalStatus.enumValues)[number];
 export type HousekeepingStatus = (typeof housekeepingStatus.enumValues)[number];
@@ -70,3 +73,4 @@ export type RequestStatus = (typeof requestStatus.enumValues)[number];
 export type RequestPriority = (typeof requestPriority.enumValues)[number];
 export type StayStatus = (typeof stayStatus.enumValues)[number];
 export type HousekeepingTaskStatus = (typeof housekeepingTaskStatus.enumValues)[number];
+export type SubscriptionStatus = (typeof subscriptionStatus.enumValues)[number];

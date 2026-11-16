@@ -23,6 +23,10 @@ const schema = z.object({
   ABLY_API_KEY: z.string().regex(/^[^:\s]+\.[^:\s]+:[^\s]+$/, "ABLY_API_KEY must look like appId.keyId:secret").optional(),
   /** Bearer secret for /api/cron/* (Vercel Cron sends it automatically when set). */
   CRON_SECRET: z.string().min(16).optional(),
+  /** Razorpay (Phase 7). Use TEST mode keys until the commercial launch. */
+  RAZORPAY_KEY_ID: z.string().regex(/^rzp_(test|live)_[A-Za-z0-9]+$/, "RAZORPAY_KEY_ID must look like rzp_test_…").optional(),
+  RAZORPAY_KEY_SECRET: z.string().min(10).optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(8).optional(),
 });
 
 export type ServerEnv = z.infer<typeof schema>;

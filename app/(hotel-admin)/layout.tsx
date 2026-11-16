@@ -6,6 +6,7 @@ import { requireTenantContext, requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { can, propertyScope } from "@/lib/permissions/authorize";
 import { inboxMarker } from "@/modules/requests/staff";
+import { getSubscriptionWithPlan, trialDaysLeft } from "@/modules/billing/subscription";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import type { PermissionKey } from "@/lib/permissions/catalog";
 
@@ -15,7 +16,9 @@ const NAV: { href: string; label: string; permission?: PermissionKey; anyPropert
   { href: "/housekeeping", label: "Housekeeping", permission: "housekeeping.view", anyProperty: true },
   { href: "/rooms", label: "Rooms" },
   { href: "/properties", label: "Properties" },
+  { href: "/reports", label: "Reports", permission: "report.view", anyProperty: true },
   { href: "/staff", label: "Staff", permission: "staff.view" },
+  { href: "/billing", label: "Billing", permission: "billing.view" },
   { href: "/settings", label: "Hotel settings", permission: "tenant.manage" },
   { href: "/audit", label: "Audit log", permission: "audit.view" },
 ];
@@ -35,6 +38,9 @@ export default async function HotelAdminLayout({ children }: { children: React.R
   const marker = showInbox ? await inboxMarker(getDb(), ctx) : null;
   const newRequests = marker?.newCount ?? 0;
   const escalated = marker?.escalatedCount ?? 0;
+  // Billing banner for people who can act on it (trial ending / payment due).
+  const billing = can(ctx, "billing.view") ? await getSubscriptionWithPlan(getDb(), ctx.tenantId).catch(() => null) : null;
+  const trialLeft = billing ? trialDaysLeft(billing.subscription) : null;
   const inactive = ctx.tenantStatus === "suspended" || ctx.tenantStatus === "cancelled";
 
   return (
@@ -96,6 +102,24 @@ export default async function HotelAdminLayout({ children }: { children: React.R
           </form>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-8">
+          {trialLeft !== null && trialLeft <= 7 && (
+            <Alert tone="info" className="mb-6">
+              Your free trial ends in {trialLeft} day{trialLeft === 1 ? "" : "s"}.{" "}
+              <Link href="/billing" className="underline underline-offset-4">
+                Choose a plan
+              </Link>
+            </Alert>
+          )}
+          {ctx.tenantStatus === "past_due" && (
+            <Alert tone="warning" className="mb-6">
+              Payment is due. The hotel keeps working during the grace period.{" "}
+              {billing && (
+                <Link href="/billing" className="underline underline-offset-4">
+                  Go to billing
+                </Link>
+              )}
+            </Alert>
+          )}
           {inactive && (
             <Alert tone="warning" className="mb-6">
               This hotel account is {ctx.tenantStatus}. You can view information, but changes are disabled. Contact

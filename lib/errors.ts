@@ -2,7 +2,7 @@
 export class AppError extends Error {
   constructor(
     message: string,
-    readonly code: "forbidden" | "not_found" | "conflict" | "validation" | "rate_limited" | "tenant_inactive",
+    readonly code: "forbidden" | "not_found" | "conflict" | "validation" | "rate_limited" | "tenant_inactive" | "plan_limit",
   ) {
     super(message);
     this.name = "AppError";

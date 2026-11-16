@@ -17,6 +17,7 @@ import {
   timezoneSchema,
 } from "@/lib/validation/common";
 import { writeAudit } from "@/modules/audit/service";
+import { assertWithinLimit } from "@/modules/billing/subscription";
 
 export const propertyInputSchema = z.object({
   name: nameSchema("Property name"),
@@ -67,6 +68,7 @@ export async function createProperty(db: Db, ctx: TenantContext, raw: PropertyIn
   assertTenantWritable(ctx);
   const input = propertyInputSchema.parse(raw);
   return db.transaction(async (tx) => {
+    await assertWithinLimit(tx, ctx.tenantId, "properties", 1);
     await assertNameFree(tx, ctx.tenantId, input.name);
     const [row] = await tx
       .insert(properties)

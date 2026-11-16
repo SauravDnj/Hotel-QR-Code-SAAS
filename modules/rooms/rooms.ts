@@ -13,6 +13,7 @@ import { can, type TenantContext } from "@/lib/permissions/authorize";
 import { optionalText } from "@/lib/validation/common";
 import { writeAudit } from "@/modules/audit/service";
 import { idSchema, requireProperty } from "@/modules/properties/access";
+import { assertWithinLimit } from "@/modules/billing/subscription";
 import { issueForNewRooms } from "@/modules/qr/issue";
 import { isUniqueViolation } from "./db-errors";
 
@@ -178,6 +179,7 @@ export async function createRoom(db: Db, ctx: TenantContext, propertyId: string,
   await assertParents(db, ctx, property.id, input.floorId, input.categoryId);
   try {
     return await db.transaction(async (tx) => {
+      await assertWithinLimit(tx, ctx.tenantId, "rooms", 1);
       const [row] = await tx
         .insert(rooms)
         .values({ ...input, tenantId: ctx.tenantId, propertyId: property.id })
@@ -225,6 +227,7 @@ export async function bulkCreateRooms(db: Db, ctx: TenantContext, propertyId: st
 
   try {
     return await db.transaction(async (tx) => {
+      await assertWithinLimit(tx, ctx.tenantId, "rooms", codes.length);
       const created = await tx
         .insert(rooms)
         .values(
@@ -393,6 +396,7 @@ export async function setRoomArchived(db: Db, ctx: TenantContext, propertyId: st
   await requireProperty(db, ctx, propertyId, "room.manage", { write: true });
   try {
     return await db.transaction(async (tx) => {
+      if (!archived && existing.archivedAt) await assertWithinLimit(tx, ctx.tenantId, "rooms", 1);
       const [row] = await tx
         .update(rooms)
         .set({ archivedAt: archived ? new Date() : null })

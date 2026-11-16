@@ -19,6 +19,9 @@ export default defineConfig({
       QR_TOKEN_PEPPER: "test-pepper-test-pepper-test-pepper-0000",
       ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
       GUEST_PORTAL_URL: "https://guest.test",
+      RAZORPAY_KEY_ID: "rzp_test_unitTest123",
+      RAZORPAY_KEY_SECRET: "test-key-secret-123456",
+      RAZORPAY_WEBHOOK_SECRET: "test-webhook-secret",
     },
     // "server-only" throws outside React Server Components; stub it for tests.
     alias: { "server-only": fileURLToPath(new URL("./tests/helpers/server-only-stub.ts", import.meta.url)) },

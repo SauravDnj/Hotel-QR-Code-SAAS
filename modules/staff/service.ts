@@ -21,6 +21,7 @@ import type { PermissionKey } from "@/lib/permissions/catalog";
 import { emailSchema, nameSchema, passwordSchema } from "@/lib/validation/common";
 import { writeAudit } from "@/modules/audit/service";
 import { isUniqueViolation } from "@/modules/rooms/db-errors";
+import { assertWithinLimit } from "@/modules/billing/subscription";
 
 /**
  * Staff accounts, role assignments and invitations (Phase 5, RBAC_PERMISSIONS.md "Scope").
@@ -285,6 +286,7 @@ export async function setMemberStatus(db: Db, ctx: TenantContext, membershipId: 
     throw conflict("The hotel must keep at least one active owner.");
   }
   await db.transaction(async (tx) => {
+    if (status === "active" && member.status !== "active") await assertWithinLimit(tx, ctx.tenantId, "staffSeats", 1);
     await tx
       .update(tenantMemberships)
       .set({ status })
@@ -322,6 +324,7 @@ export async function createInvitation(db: Db, ctx: TenantContext, raw: InviteIn
   const token = generateQrToken();
   try {
     return await db.transaction(async (tx) => {
+      await assertWithinLimit(tx, ctx.tenantId, "staffSeats", 1);
       const [row] = await tx
         .insert(staffInvitations)
         .values({

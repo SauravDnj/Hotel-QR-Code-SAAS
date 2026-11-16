@@ -6,6 +6,7 @@ import * as schema from "@/lib/db/schema";
 import type { Db } from "@/lib/db/types";
 import type { TenantContext } from "@/lib/permissions/authorize";
 import { seedRbac } from "@/modules/rbac/seed";
+import { seedPlans } from "@/modules/billing/plans";
 import { createTenantWithOwner, type SignupInput } from "@/modules/tenants/onboarding";
 import { loadTenantContext } from "@/modules/tenants/context";
 
@@ -18,6 +19,7 @@ export async function createTestDb(): Promise<Db> {
   const db = drizzle({ client, schema }) as unknown as Db;
   await migrate(db as never, { migrationsFolder: "./drizzle" });
   await seedRbac(db);
+  await seedPlans(db);
   return db;
 }
 

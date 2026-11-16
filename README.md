@@ -3,7 +3,7 @@
 Multi-tenant hotel guest-services and operations SaaS. Product and engineering docs are in
 [`hotel-saas-documentation/`](hotel-saas-documentation/README.md), which is the source of truth.
 
-**Current status:** Phases 0–6 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA, check-in/out & housekeeping) of
+**Current status:** Phases 0–7 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA, check-in/out & housekeeping, reports & billing) of
 [`ROADMAP_AND_PHASES.md`](hotel-saas-documentation/07-delivery/ROADMAP_AND_PHASES.md).
 
 ## Stack
@@ -28,7 +28,8 @@ modules/             Domain services: tenants, properties, platform, audit, rbac
                      qr (room QR lifecycle), guest-portal (settings + public resolution),
                      services (catalogue), requests (guest submit, staff inbox, state machine, escalation),
                      realtime (outbox), staff (invitations, assignments, custom roles, profile),
-                     stays (check-in/out), housekeeping (tasks, inspection, readiness)
+                     stays (check-in/out), housekeeping (tasks, inspection, readiness),
+                     billing (plans, subscriptions, limits, Razorpay webhooks), reports (metrics)
 drizzle/             Generated SQL migrations (committed, reviewed)
 scripts/             seed (RBAC sync), create-platform-admin
 tests/               unit, integration (in-process Postgres via PGlite), e2e (Playwright)
@@ -67,7 +68,8 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
   `DATABASE_URL` (Neon integration, pooled), `DIRECT_URL`, `AUTH_SECRET` (separate per environment),
   `APP_URL` (production only; previews fall back to `VERCEL_URL`), `QR_TOKEN_PEPPER` and `ENCRYPTION_KEY`
   (identical in every environment that shares the database), optional `GUEST_PORTAL_URL`,
-  `ABLY_API_KEY` (realtime; polling without it) and `CRON_SECRET`.
+  `ABLY_API_KEY` (realtime; polling without it), `CRON_SECRET` (daily cron), and `RAZORPAY_KEY_ID`,
+  `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` (payments; billing page explains when off).
 - **Migrations are not run by the build.** Before pushing a schema change, run
   `pnpm db:migrate && pnpm db:seed` against the target database.
 - Health check: `GET /api/health` returns `{"status":"ok"}` when the database is reachable.
@@ -204,6 +206,47 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
     names).
   - Audit entries contain room codes and ids, never guest names or contact details.
   - The public QR portal never sees stays.
+
+## Reports and billing (Phase 7)
+
+- **Dashboard** ("Right now"): rooms, occupied, ready to sell, being turned, out of service, departures due,
+  plus new/in-progress/overdue/escalated requests. Everything follows the user's property and department
+  scope.
+- **Reports** (`/reports`, `report.view` plus the plan's `reports` module): occupancy by night, check-ins
+  and check-outs, request volume, acknowledgement/completion median and p90, missed targets by department,
+  most-requested services, cancelled/reopened/escalated counts, housekeeping cleanings, average cleaning
+  time, inspection pass rate, and staff workload.
+  - Date ranges are property-local and capped at 92 days.
+  - Metric definitions are in `modules/reports/service.ts` and on the page.
+- **Plans** live in the `plans` table as structured entitlements: max rooms, properties and staff seats,
+  plus modules.
+  - `pnpm db:seed` inserts a starting catalogue once (never overwrites).
+  - SaaS operators edit prices and limits at `/platform/plans`.
+  - Code never hardcodes limits.
+- **Limits are enforced on the server** (`assertWithinLimit`) inside the same transaction as the insert,
+  with the tenant row locked. Concurrent creates cannot both slip under a limit.
+  - Rooms: create, bulk create and restore.
+  - Properties: create.
+  - Staff seats: invite and reactivate. Open invitations reserve a seat.
+- **Subscription lifecycle:**
+  - Trial on the default plan.
+  - Trial ends unpaid → `past_due` with a 7-day grace period (still fully working).
+  - Grace ends → `suspended`: read-only, data kept, owners can still pay.
+  - Cancelled → read-only.
+
+  A SaaS operator "platform hold" keeps a tenant suspended whatever billing says. Operators can extend
+  trials (audited). The daily Vercel cron `/api/cron/daily` (Bearer `CRON_SECRET`) runs the lifecycle
+  sweep, escalation and outbox retries.
+- **Razorpay:**
+  - Checkout: the server creates the subscription from the plan's `razorpay_plan_id` and redirects the
+    owner to Razorpay's hosted page. No amount comes from the browser, and no card data touches the app.
+  - `/api/webhooks/razorpay` verifies `X-Razorpay-Signature` (HMAC-SHA256 of the raw body, constant-time)
+    and records the `x-razorpay-event-id` first, so replays are no-ops.
+  - It applies a state change only if the event is newer than the last one applied.
+  - It finds the subscription by **our** stored provider id, never by payload notes.
+  - Receipts are deduplicated by payment id. Card and contact fields are never stored.
+  - Webhook URL to register in Razorpay: `https://<domain>/api/webhooks/razorpay`. Events: subscription.*
+    and payment.failed.
 
 ## Security model (Phase 1)
 

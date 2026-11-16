@@ -20,6 +20,7 @@ import {
   timezoneSchema,
 } from "@/lib/validation/common";
 import { writeAudit } from "@/modules/audit/service";
+import { defaultPlan, ensureSubscription } from "@/modules/billing/subscription";
 
 export const signupSchema = z.object({
   ownerName: nameSchema("Your name"),
@@ -124,6 +125,9 @@ export async function createTenantWithOwner(db: Db, raw: SignupInput) {
       entityId: tenant.id,
       metadata: { source: "self_signup", firstPropertyId: property.id },
     });
+
+    // Start the trial on the default plan (created lazily later if plans aren't seeded yet).
+    if (await defaultPlan(tx)) await ensureSubscription(tx, tenant.id);
 
     return { tenantId: tenant.id, userId: user.id, propertyId: property.id };
   });

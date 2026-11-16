@@ -6,12 +6,16 @@ import { getDb } from "@/lib/db/client";
 import { requireTenantContext } from "@/lib/auth/session";
 import { can } from "@/lib/permissions/authorize";
 import { listProperties } from "@/modules/properties/service";
+import { dashboardMetrics } from "@/modules/reports/service";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const ctx = await requireTenantContext();
-  const props = await listProperties(getDb(), ctx); // empty when the user has no property scope
+  const [props, metrics] = await Promise.all([
+    listProperties(getDb(), ctx), // empty when the user has no property scope
+    dashboardMetrics(getDb(), ctx),
+  ]);
   const roles = [...new Set(ctx.grants.map((g) => g.roleKey))];
 
   return (
@@ -33,6 +37,44 @@ export default async function DashboardPage() {
           <p className="mt-2 text-sm font-medium">{roles.join(", ") || "No role assigned"}</p>
         </Card>
       </div>
+
+      {metrics && (
+        <section aria-labelledby="today-h" className="mt-8">
+          <h2 id="today-h" className="mb-3 text-lg font-semibold">
+            Right now
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              { label: "Rooms", value: metrics.rooms.total, href: "/rooms" },
+              { label: "Occupied", value: metrics.rooms.occupied, href: "/front-desk" },
+              { label: "Ready to sell", value: metrics.rooms.ready, href: "/front-desk" },
+              { label: "Being turned", value: metrics.rooms.needsWork, href: "/housekeeping" },
+              { label: "Out of service", value: metrics.rooms.outOfService, href: "/housekeeping?show=all" },
+              { label: "Departures due", value: metrics.departuresToday, href: "/front-desk" },
+            ].map((m) => (
+              <Link key={m.label} href={m.href} className="rounded-ui border border-border bg-surface p-3 hover:bg-surface-muted">
+                <p className="text-xs text-muted-foreground">{m.label}</p>
+                <p className="mt-1 text-2xl font-semibold tabular-nums">{m.value}</p>
+              </Link>
+            ))}
+          </div>
+          {metrics.requests && (
+            <div className="mt-3 grid gap-3 sm:grid-cols-4">
+              {[
+                { label: "New requests", value: metrics.requests.new },
+                { label: "In progress", value: metrics.requests.inProgress },
+                { label: "Past target time", value: metrics.requests.overdue },
+                { label: "Escalated", value: metrics.requests.escalated },
+              ].map((m) => (
+                <Link key={m.label} href="/inbox" className="rounded-ui border border-border bg-surface p-3 hover:bg-surface-muted">
+                  <p className="text-xs text-muted-foreground">{m.label}</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums">{m.value}</p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <h2 className="mb-3 mt-10 text-lg font-semibold">Getting started</h2>
       {props.length === 0 ? (
