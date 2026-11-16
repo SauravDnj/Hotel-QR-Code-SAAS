@@ -8,7 +8,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
-  timeout: 90_000,
+  timeout: 180_000,
   // Local dev talks to a remote Neon region, so allow for network latency.
   expect: { timeout: 20_000 },
   retries: process.env.CI ? 1 : 0,

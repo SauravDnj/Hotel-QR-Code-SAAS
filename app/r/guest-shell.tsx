@@ -1,0 +1,27 @@
+import type { ReactNode } from "react";
+
+/** Mobile-first frame shared by the guest portal and its error pages. */
+export function GuestShell({ children, accent }: { children: ReactNode; accent?: string }) {
+  return (
+    <main
+      className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-4 px-4 py-4"
+      style={accent ? ({ "--accent": accent } as React.CSSProperties) : undefined}
+    >
+      {children}
+    </main>
+  );
+}
+
+/** Black or white text, whichever contrasts better with a #rrggbb background (WCAG luminance). */
+export function readableOn(hex: string): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return "#ffffff";
+  const n = parseInt(m[1], 16);
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  // Contrast with white = 1.05 / (L + 0.05); with black = (L + 0.05) / 0.05.
+  return 1.05 / (L + 0.05) >= (L + 0.05) / 0.05 ? "#ffffff" : "#111111";
+}

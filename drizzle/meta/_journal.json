@@ -15,6 +15,13 @@
       "when": 1794754703781,
       "tag": "0001_hotel_structure",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794839194936,
+      "tag": "0002_guest_portal",
+      "breakpoints": true
     }
   ]
 }

@@ -55,11 +55,12 @@ export default async function DashboardPage() {
                 <span className="font-medium">{p.name}:</span> add{" "}
                 <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/floors`}>floors</Link>,{" "}
                 <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/room-types`}>room types</Link>,{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/rooms`}>rooms</Link> and{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/departments`}>departments</Link>.
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/rooms`}>rooms</Link>,{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/guest-portal`}>guest portal &amp; Wi-Fi</Link>, then{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/qr-codes`}>print QR codes</Link>.
               </li>
             ))}
-            <li className="text-muted-foreground">Room QR codes and the guest portal arrive in the next release (Phase 3).</li>
+            <li className="text-muted-foreground">Guest service requests (water, housekeeping, maintenance) arrive in the next release.</li>
           </ol>
         </Card>
       )}

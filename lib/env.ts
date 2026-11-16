@@ -10,6 +10,15 @@ const schema = z.object({
   DIRECT_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
   APP_URL: z.url(),
+  /** Base URL printed in room QR codes; defaults to APP_URL. Must never be a preview URL. */
+  GUEST_PORTAL_URL: z.url().optional(),
+  /** HMAC key for QR token hashes (Phase 3). Rotating it invalidates every printed QR. */
+  QR_TOKEN_PEPPER: z.string().min(32, "QR_TOKEN_PEPPER must be at least 32 characters").optional(),
+  /** base64 32-byte AES-256-GCM key for secrets at rest (Wi-Fi passwords, QR tokens). */
+  ENCRYPTION_KEY: z
+    .string()
+    .refine((k) => Buffer.from(k, "base64").length === 32, "ENCRYPTION_KEY must be 32 bytes, base64-encoded")
+    .optional(),
 });
 
 export type ServerEnv = z.infer<typeof schema>;

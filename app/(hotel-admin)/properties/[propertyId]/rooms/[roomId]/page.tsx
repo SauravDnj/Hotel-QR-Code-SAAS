@@ -16,6 +16,7 @@ import { listFloors } from "@/modules/rooms/floors";
 import { getRoom, HOUSEKEEPING_STATUSES, listRoomHistory, OPERATIONAL_STATUSES } from "@/modules/rooms/rooms";
 import { archiveRoomAction, changeRoomStatusAction, updateRoomAction } from "../../structure-actions";
 import { RoomForm } from "../room-forms";
+import { RoomQrCard } from "./room-qr-card";
 
 export const metadata: Metadata = { title: "Room" };
 
@@ -122,6 +123,14 @@ export default async function RoomPage({
           )}
         </Card>
       </div>
+
+      <RoomQrCard
+        ctx={ctx}
+        propertyId={propertyId}
+        roomId={room.id}
+        archived={Boolean(room.archivedAt)}
+        timezone={room.property.timezone}
+      />
 
       <Card>
         <h3 className="mb-4 text-sm font-semibold">Room details</h3>

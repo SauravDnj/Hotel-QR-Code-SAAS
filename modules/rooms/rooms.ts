@@ -13,6 +13,7 @@ import type { TenantContext } from "@/lib/permissions/authorize";
 import { optionalText } from "@/lib/validation/common";
 import { writeAudit } from "@/modules/audit/service";
 import { idSchema, requireProperty } from "@/modules/properties/access";
+import { issueForNewRooms } from "@/modules/qr/issue";
 import { isUniqueViolation } from "./db-errors";
 
 export const OPERATIONAL_STATUSES = roomOperationalStatus.enumValues;
@@ -64,6 +65,13 @@ export const roomFilterSchema = z.object({
 });
 export type RoomFilter = z.input<typeof roomFilterSchema>;
 
+/** Natural room order: letter prefix, then first number, then code (so 9 < 10 < 101 < A101). */
+export const roomNaturalOrder = [
+  asc(sql`lower(substring(${rooms.roomCode} from '^[^0-9]*'))`),
+  asc(sql`substring(${rooms.roomCode} from '[0-9]{1,15}')::bigint`),
+  asc(rooms.roomCode),
+];
+
 /** Escape LIKE wildcards so search text is matched literally. */
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
 
@@ -96,13 +104,7 @@ export async function listRooms(db: Db, ctx: TenantContext, propertyId: string, 
     .innerJoin(floors, eq(floors.id, rooms.floorId))
     .innerJoin(roomCategories, eq(roomCategories.id, rooms.categoryId))
     .where(condition)
-    // Natural order: floor, then letter prefix, then first number (so 9 < 10 < 101 < A101).
-    .orderBy(
-      asc(floors.sortOrder),
-      asc(sql`lower(substring(${rooms.roomCode} from '^[^0-9]*'))`),
-      asc(sql`substring(${rooms.roomCode} from '[0-9]{1,15}')::bigint`),
-      asc(rooms.roomCode),
-    )
+    .orderBy(asc(floors.sortOrder), ...roomNaturalOrder)
     .limit(f.pageSize)
     .offset((f.page - 1) * f.pageSize);
 
@@ -180,6 +182,7 @@ export async function createRoom(db: Db, ctx: TenantContext, propertyId: string,
         .insert(rooms)
         .values({ ...input, tenantId: ctx.tenantId, propertyId: property.id })
         .returning();
+      await issueForNewRooms(tx, ctx, property.id, [row.id]);
       await writeAudit(tx, {
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,
@@ -234,6 +237,7 @@ export async function bulkCreateRooms(db: Db, ctx: TenantContext, propertyId: st
           })),
         )
         .returning({ id: rooms.id });
+      await issueForNewRooms(tx, ctx, property.id, created.map((r) => r.id));
       await writeAudit(tx, {
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,

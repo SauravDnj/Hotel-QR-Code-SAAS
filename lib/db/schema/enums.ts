@@ -38,7 +38,12 @@ export const housekeepingStatus = pgEnum("housekeeping_status", [
 
 export const departmentStatus = pgEnum("department_status", ["active", "inactive"]);
 
+// QR lifecycle (DATA_DICTIONARY.md): only `active` resolves. `expired` is reserved for
+// time-limited codes; revoked rows are kept for audit and never reactivated after rotation.
+export const qrStatus = pgEnum("qr_status", ["active", "revoked", "expired"]);
+
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];
 export type RoomOperationalStatus = (typeof roomOperationalStatus.enumValues)[number];
 export type HousekeepingStatus = (typeof housekeepingStatus.enumValues)[number];
 export type PropertyStatus = (typeof propertyStatus.enumValues)[number];
+export type QrStatus = (typeof qrStatus.enumValues)[number];

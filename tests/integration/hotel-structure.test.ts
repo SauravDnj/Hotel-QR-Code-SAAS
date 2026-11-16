@@ -1,8 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { and, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Db } from "@/lib/db/types";
-import { roles, rooms, roomStatusHistory, tenantMemberships, userRoleAssignments, users } from "@/lib/db/schema";
-import type { TenantContext } from "@/lib/permissions/authorize";
+import { rooms, roomStatusHistory } from "@/lib/db/schema";
 import { createProperty } from "@/modules/properties/service";
 import { createFloor, listFloors, setFloorArchived, updateFloor } from "@/modules/rooms/floors";
 import { createCategory, listCategories, setCategoryArchived } from "@/modules/rooms/categories";
@@ -18,8 +17,7 @@ import {
   updateRoom,
 } from "@/modules/rooms/rooms";
 import { createDefaultDepartments, createDepartment, listDepartments, updateDepartment } from "@/modules/departments/service";
-import { loadTenantContext } from "@/modules/tenants/context";
-import { createTestDb, createTenantFixture } from "../helpers/db";
+import { addStaff, createTestDb, createTenantFixture } from "../helpers/db";
 
 type Fixture = Awaited<ReturnType<typeof createTenantFixture>>;
 
@@ -27,17 +25,6 @@ async function setupStructure(db: Db, t: Fixture) {
   const floor = await createFloor(db, t.ctx, t.propertyId, { name: "Floor 1", sortOrder: 1 });
   const category = await createCategory(db, t.ctx, t.propertyId, { name: "Deluxe", capacity: 2 });
   return { floor, category };
-}
-
-async function addStaff(db: Db, t: Fixture, roleKey: string, propertyId: string | null): Promise<TenantContext> {
-  const [user] = await db
-    .insert(users)
-    .values({ email: `${roleKey}-${crypto.randomUUID()}@example.test`, name: roleKey, passwordHash: "x" })
-    .returning();
-  const [m] = await db.insert(tenantMemberships).values({ tenantId: t.tenantId, userId: user.id }).returning();
-  const [role] = await db.select().from(roles).where(and(isNull(roles.tenantId), eq(roles.key, roleKey)));
-  await db.insert(userRoleAssignments).values({ tenantId: t.tenantId, membershipId: m.id, roleId: role.id, propertyId });
-  return (await loadTenantContext(db, user.id, t.tenantId))!;
 }
 
 describe("floors, room types and rooms", () => {

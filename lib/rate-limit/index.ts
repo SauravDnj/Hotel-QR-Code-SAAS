@@ -11,6 +11,10 @@ export const RATE_LIMITS = {
   loginByEmail: { limit: 5, windowSeconds: 15 * 60 },
   loginByIp: { limit: 30, windowSeconds: 15 * 60 },
   signupByIp: { limit: 5, windowSeconds: 60 * 60 },
+  // Public QR portal: generous for real guests (a family on hotel Wi-Fi shares one IP),
+  // but enough to make token guessing pointless on top of the 256-bit token space.
+  qrScanByIp: { limit: 120, windowSeconds: 60 },
+  qrScanByCode: { limit: 60, windowSeconds: 60 },
 } satisfies Record<string, RateLimitRule>;
 
 /**
