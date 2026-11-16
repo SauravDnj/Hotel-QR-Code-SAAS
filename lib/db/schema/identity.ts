@@ -27,6 +27,11 @@ export const users = pgTable("users", {
   isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),
   // Bump to invalidate every existing session for this user.
   sessionVersion: integer("session_version").notNull().default(1),
+  /** TOTP two-step sign-in (Phase 8): AES-GCM encrypted base32 secret; enabled once confirmed. */
+  mfaSecretCiphertext: text("mfa_secret_ciphertext"),
+  mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true }),
+  /** Last accepted TOTP time step, so a code can never be replayed. */
+  mfaLastStep: integer("mfa_last_step"),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   ...timestamps,
 });

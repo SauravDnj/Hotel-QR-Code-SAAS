@@ -46,7 +46,7 @@ export default async function PropertyLayout({
   return (
     <>
       <p className="mb-1 text-sm text-muted-foreground">
-        <Link href="/properties" className="underline-offset-4 hover:underline">
+        <Link href="/properties" className="underline underline-offset-4">
           Properties
         </Link>{" "}
         / {property.name}

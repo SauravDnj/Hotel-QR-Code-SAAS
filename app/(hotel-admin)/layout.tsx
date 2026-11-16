@@ -89,10 +89,10 @@ export default async function HotelAdminLayout({ children }: { children: React.R
       </aside>
       <div className="flex min-w-0 flex-col">
         <header className="flex items-center justify-end gap-3 border-b border-border bg-surface px-5 py-3">
-          <Link href="/profile" className="truncate text-sm text-muted-foreground underline-offset-4 hover:underline" title="My profile">
+          <Link href="/profile" className="truncate text-sm text-muted-foreground underline underline-offset-4" title="My profile">
             {user.name || user.email}
           </Link>
-          <Link href="/select-tenant" className="text-sm text-primary underline-offset-4 hover:underline">
+          <Link href="/select-tenant" className="text-sm text-primary underline underline-offset-4">
             Switch hotel
           </Link>
           <form action={logoutAction}>

@@ -31,7 +31,7 @@ export default async function NewRoomPage({ params }: { params: Promise<{ proper
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Add rooms</h2>
-        <Link href={`/properties/${propertyId}/rooms`} className="text-sm text-primary underline-offset-4 hover:underline">
+        <Link href={`/properties/${propertyId}/rooms`} className="text-sm text-primary underline underline-offset-4">
           Back to rooms
         </Link>
       </div>

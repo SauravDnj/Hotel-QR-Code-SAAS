@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PermissionDenied } from "@/components/permission-denied";
-import { PageHeader } from "@/components/ui/card";
+import { Card, PageHeader } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 import { requireTenantContext } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { can } from "@/lib/permissions/authorize";
@@ -27,6 +28,18 @@ export default async function SettingsPage() {
           currency: t.currency,
         }}
       />
+      <Card className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Export your data</h2>
+          <p className="text-xs text-muted-foreground">
+            Download everything your hotel has stored here as JSON: rooms, services, staff, stays, guest records, requests,
+            housekeeping and the audit log. No passwords or secrets are included. Contains guest personal data, so store it securely.
+          </p>
+        </div>
+        <a href="/api/export" className={buttonVariants({ variant: "secondary" })} download>
+          Download export
+        </a>
+      </Card>
     </>
   );
 }

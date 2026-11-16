@@ -18,6 +18,20 @@ export function LoginForm({ next }: { next?: string }) {
       <Field label="Password" name="password">
         <Input name="password" type="password" autoComplete="current-password" required />
       </Field>
+      {state.values?.mfa ? (
+        <Field label="Authenticator code" name="otp" hint="6 digits from your authenticator app.">
+          <Input name="otp" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus />
+        </Field>
+      ) : (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-muted-foreground">I use an authenticator app</summary>
+          <div className="mt-2">
+            <Field label="Authenticator code" name="otp">
+              <Input name="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={7} />
+            </Field>
+          </div>
+        </details>
+      )}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
       </Button>

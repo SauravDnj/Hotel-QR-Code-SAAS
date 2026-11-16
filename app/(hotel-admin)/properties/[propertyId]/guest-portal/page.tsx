@@ -44,7 +44,7 @@ export default async function GuestPortalPage({ params }: { params: Promise<{ pr
         <h2 className="text-lg font-semibold">Guest portal</h2>
         <p className="text-sm text-muted-foreground">
           What guests see after scanning a room QR code. To preview it, open any room from the{" "}
-          <Link href={`/properties/${propertyId}/qr-codes`} className="text-primary underline-offset-4 hover:underline">
+          <Link href={`/properties/${propertyId}/qr-codes`} className="text-primary underline underline-offset-4">
             QR codes
           </Link>{" "}
           page and choose “Open guest page”. The page never shows guest names, stay details or request history.

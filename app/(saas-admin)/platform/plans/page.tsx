@@ -21,7 +21,7 @@ export default async function PlansPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-8">
-      <Link href="/platform" className="text-sm text-primary underline-offset-4 hover:underline">
+      <Link href="/platform" className="text-sm text-primary underline underline-offset-4">
         ← Tenants
       </Link>
       <PageHeader

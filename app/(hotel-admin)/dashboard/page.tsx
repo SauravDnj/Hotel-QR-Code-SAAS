@@ -95,18 +95,18 @@ export default async function DashboardPage() {
             {props.map((p) => (
               <li key={p.id}>
                 <span className="font-medium">{p.name}:</span> add{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/floors`}>floors</Link>,{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/room-types`}>room types</Link>,{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/rooms`}>rooms</Link>,{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/guest-portal`}>guest portal &amp; Wi-Fi</Link>, then{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/qr-codes`}>print QR codes</Link>.
+                <Link className="text-primary underline underline-offset-4" href={`/properties/${p.id}/floors`}>floors</Link>,{" "}
+                <Link className="text-primary underline underline-offset-4" href={`/properties/${p.id}/room-types`}>room types</Link>,{" "}
+                <Link className="text-primary underline underline-offset-4" href={`/properties/${p.id}/rooms`}>rooms</Link>,{" "}
+                <Link className="text-primary underline underline-offset-4" href={`/properties/${p.id}/guest-portal`}>guest portal &amp; Wi-Fi</Link>, then{" "}
+                <Link className="text-primary underline underline-offset-4" href={`/properties/${p.id}/qr-codes`}>print QR codes</Link>.
               </li>
             ))}
             {props.map((p) => (
               <li key={`svc-${p.id}`}>
                 <span className="font-medium">{p.name}:</span> set up{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/services`}>guest services</Link>, then watch the{" "}
-                <Link className="text-primary underline-offset-4 hover:underline" href="/inbox">request inbox</Link>.
+                <Link className="text-primary underline underline-offset-4" href={`/properties/${p.id}/services`}>guest services</Link>, then watch the{" "}
+                <Link className="text-primary underline underline-offset-4" href="/inbox">request inbox</Link>.
               </li>
             ))}
           </ol>

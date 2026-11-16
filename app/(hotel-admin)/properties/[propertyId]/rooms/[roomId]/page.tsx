@@ -62,7 +62,7 @@ export default async function RoomPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href={`/properties/${propertyId}/rooms`} className="text-sm text-primary underline-offset-4 hover:underline">
+          <Link href={`/properties/${propertyId}/rooms`} className="text-sm text-primary underline underline-offset-4">
             ← All rooms
           </Link>
           <h2 className="mt-1 text-2xl font-semibold">Room {room.roomCode}</h2>

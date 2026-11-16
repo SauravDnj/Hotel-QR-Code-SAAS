@@ -36,7 +36,7 @@ export default async function StaffPage() {
           <p className="text-sm text-muted-foreground">Who can sign in to this hotel, with which role and where.</p>
         </div>
         {can(ctx, "role.manage") && (
-          <Link href="/staff/roles" className="text-sm text-primary underline-offset-4 hover:underline">
+          <Link href="/staff/roles" className="text-sm text-primary underline underline-offset-4">
             Roles & permissions →
           </Link>
         )}
@@ -89,7 +89,7 @@ export default async function StaffPage() {
             {staff.map((s) => (
               <tr key={s.membershipId} className="border-b border-border last:border-0">
                 <td className="px-4 py-2">
-                  <Link href={`/staff/${s.membershipId}`} className="font-medium text-primary underline-offset-4 hover:underline">
+                  <Link href={`/staff/${s.membershipId}`} className="font-medium text-primary underline underline-offset-4">
                     {s.name}
                   </Link>
                   <div className="text-xs text-muted-foreground">{s.email}</div>

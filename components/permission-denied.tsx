@@ -7,7 +7,7 @@ export function PermissionDenied() {
       <p className="mt-2 text-sm text-muted-foreground">
         Ask your hotel owner or manager to update your role if you need it.
       </p>
-      <Link href="/dashboard" className="mt-4 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">
+      <Link href="/dashboard" className="mt-4 inline-block text-sm font-medium text-primary underline underline-offset-4">
         Back to dashboard
       </Link>
     </div>

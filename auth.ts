@@ -8,6 +8,10 @@ class RateLimitedSignin extends CredentialsSignin {
   code = "rate_limited";
 }
 
+class MfaRequiredSignin extends CredentialsSignin {
+  code = "mfa_required";
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // Credentials provider requires JWT sessions. The token is an HttpOnly, Secure (in
   // production), SameSite=Lax cookie and is re-validated against the database on every
@@ -18,11 +22,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // Host trust comes from the platform (Vercel) or AUTH_TRUST_HOST, not hardcoded.
   providers: [
     Credentials({
-      credentials: { email: {}, password: {} },
+      credentials: { email: {}, password: {}, otp: {} },
       async authorize(credentials, request) {
         const result = await verifyCredentials(getDb(), credentials, clientIp(request.headers));
         if (!result.ok) {
           if (result.reason === "rate_limited") throw new RateLimitedSignin();
+          if (result.reason === "mfa_required") throw new MfaRequiredSignin();
           return null;
         }
         return {

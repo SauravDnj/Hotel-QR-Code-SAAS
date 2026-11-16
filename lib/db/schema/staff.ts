@@ -50,3 +50,23 @@ export const staffInvitations = pgTable(
     index("staff_invitations_tenant_idx").on(t.tenantId, t.createdAt),
   ],
 );
+
+/**
+ * One-time password reset links created by a SaaS operator for account recovery (no email
+ * provider yet). Only the HMAC of the token is stored; valid for 1 hour, single use.
+ */
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("password_reset_tokens_hash_unique").on(t.tokenHash)],
+);

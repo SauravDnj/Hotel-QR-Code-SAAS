@@ -5,10 +5,11 @@ import { ablyPublisher } from "@/lib/realtime/ably";
 import { sweepSubscriptions } from "@/modules/billing/subscription";
 import { drainOutbox } from "@/modules/realtime/outbox";
 import { escalateOverdue } from "@/modules/requests/escalation";
+import { applyRetention } from "@/modules/privacy/retention";
 
 /**
  * Daily maintenance (vercel.json cron): subscription lifecycle (trial end → grace →
- * suspension), escalation and outbox retries. Vercel sends `Authorization: Bearer
+ * suspension), escalation, outbox retries and data retention (guest PII, rate-limit rows). Vercel sends `Authorization: Bearer
  * $CRON_SECRET`; without the secret the route is disabled (404).
  */
 export async function GET(request: Request) {
@@ -22,5 +23,6 @@ export async function GET(request: Request) {
   const billing = await sweepSubscriptions(db);
   const escalated = await escalateOverdue(db);
   const outbox = await drainOutbox(db, ablyPublisher(), { limit: 500 });
-  return Response.json({ billing, escalated, outbox });
+  const retention = await applyRetention(db);
+  return Response.json({ billing, escalated, outbox, retention });
 }

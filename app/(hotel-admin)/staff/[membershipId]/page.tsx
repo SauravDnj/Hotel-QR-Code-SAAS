@@ -28,7 +28,7 @@ export default async function MemberPage({ params }: { params: Promise<{ members
 
   return (
     <div className="space-y-5">
-      <Link href="/staff" className="text-sm text-primary underline-offset-4 hover:underline">
+      <Link href="/staff" className="text-sm text-primary underline underline-offset-4">
         ← All staff
       </Link>
       <div className="flex flex-wrap items-center gap-3">

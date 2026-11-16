@@ -24,17 +24,24 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     await signIn("credentials", {
       email,
       password: String(formData.get("password") ?? ""),
+      otp: String(formData.get("otp") ?? ""),
       redirectTo: safeNext(formData.get("next")),
     });
   } catch (err) {
     if (err instanceof AuthError) {
-      const rate = (err as AuthError & { code?: string }).code === "rate_limited";
+      const code = (err as AuthError & { code?: string }).code;
+      const mfa = code === "mfa_required" || Boolean(formData.get("otp"));
       return {
         ok: false,
-        message: rate
-          ? "Too many sign-in attempts. Please wait 15 minutes and try again."
-          : "Incorrect email or password.",
-        values: { email },
+        message:
+          code === "rate_limited"
+            ? "Too many sign-in attempts. Please wait 15 minutes and try again."
+            : code === "mfa_required"
+              ? "Enter your password again with the 6-digit code from your authenticator app."
+              : mfa
+                ? "Incorrect email, password or authenticator code."
+                : "Incorrect email or password.",
+        values: { email, ...(mfa ? { mfa: "1" } : {}) },
       };
     }
     throw err; // includes Next.js redirect signal on success

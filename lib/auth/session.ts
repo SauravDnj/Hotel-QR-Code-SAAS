@@ -17,6 +17,7 @@ export interface CurrentUser {
   email: string;
   name: string;
   isPlatformAdmin: boolean;
+  mfaEnabled: boolean;
 }
 
 /**
@@ -29,7 +30,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!userId) return null;
   const [user] = await getDb().select().from(users).where(eq(users.id, userId));
   if (!user || user.status !== "active" || user.sessionVersion !== session.sv) return null;
-  return { id: user.id, email: user.email, name: user.name, isPlatformAdmin: user.isPlatformAdmin };
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    isPlatformAdmin: user.isPlatformAdmin,
+    mfaEnabled: Boolean(user.mfaEnabledAt),
+  };
 });
 
 export async function requireUser(): Promise<CurrentUser> {
@@ -61,5 +68,8 @@ export async function requirePlatformAdmin(): Promise<PlatformActor & CurrentUse
   const user = await requireUser();
   // 404 rather than 403 so the operator console is not discoverable.
   if (!user.isPlatformAdmin) notFound();
+  // SECURITY_PRIVACY.md: MFA is required for SaaS operators. Sessions are re-issued with the
+  // code once enabled (session_version bump), so this also covers sessions from before.
+  if (!user.mfaEnabled) redirect("/account/security?required=1");
   return { ...user, userId: user.id };
 }

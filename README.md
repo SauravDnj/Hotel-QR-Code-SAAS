@@ -3,7 +3,7 @@
 Multi-tenant hotel guest-services and operations SaaS. Product and engineering docs are in
 [`hotel-saas-documentation/`](hotel-saas-documentation/README.md), which is the source of truth.
 
-**Current status:** Phases 0–7 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA, check-in/out & housekeeping, reports & billing) of
+**Current status:** Phases 0–8 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA, check-in/out & housekeeping, reports & billing, hardening & pilot readiness) of
 [`ROADMAP_AND_PHASES.md`](hotel-saas-documentation/07-delivery/ROADMAP_AND_PHASES.md).
 
 ## Stack
@@ -57,7 +57,9 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
 | `pnpm db:generate` | Generate a migration after changing `lib/db/schema` |
 | `pnpm db:check` | Fails if schema and migrations are out of sync (CI) |
 | `pnpm db:migrate` | Apply migrations (run once per release, never at runtime) |
-| `pnpm db:seed` | Sync RBAC catalogue |
+| `pnpm db:seed` | Sync RBAC catalogue and insert missing plans |
+| `pnpm backup` / `pnpm restore:check <dir>` | Logical backup / restore rehearsal into a throwaway DB |
+| `pnpm load:smoke <url> [conc] [secs] [paths…]` | Small load smoke test (use staging for real load) |
 
 ## Deployment (Vercel + Neon)
 
@@ -247,6 +249,30 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
   - Receipts are deduplicated by payment id. Card and contact fields are never stored.
   - Webhook URL to register in Razorpay: `https://<domain>/api/webhooks/razorpay`. Events: subscription.*
     and payment.failed.
+
+## Hardening and pilot readiness (Phase 8)
+
+- **Security review:** `docs/SECURITY_REVIEW.md` has findings ranked by severity, with evidence and retest
+  results. No open Critical; the High (operator MFA) is fixed.
+- **Two-step sign-in (TOTP, RFC 6238):** required for SaaS operators (the console redirects to
+  `/account/security` until enabled), optional for hotel staff (Profile → Two-step sign-in). Codes cannot be
+  replayed. Enabling, disabling or resetting signs out all sessions.
+- **Account recovery** (`/platform/support`): operator-made one-time password reset links (1 hour, single
+  use, audited) and lost-authenticator reset.
+- **Operations page** (`/platform/support`): outbox backlog and dead events, overdue/escalated requests,
+  billing states, failed webhooks.
+- **Privacy:** guest PII is anonymised 180 days after the last checkout, and old guest notes are cleared
+  (daily cron). Owners can download a JSON export (Settings) without any secrets.
+- **QR room-by-room audit:** QR codes page → "Start room-by-room audit" → scan every sticker → "N of N
+  verified".
+- **Accessibility:** `tests/e2e/accessibility.spec.ts` runs axe (WCAG 2.1 A/AA) on guest (phone) and staff
+  screens; 0 violations.
+- **Backup/restore:** `pnpm backup` + `pnpm restore:check` (rehearsed on production data); Neon PITR
+  drill in `docs/RUNBOOK.md`.
+- **Operations docs:**
+  - `docs/RUNBOOK.md` (daily checks, incidents, recovery, deploy/rollback);
+  - `docs/LAUNCH_CHECKLIST.md`;
+  - `docs/PILOT_PLAN.md` (pilot test script and sign-off).
 
 ## Security model (Phase 1)
 

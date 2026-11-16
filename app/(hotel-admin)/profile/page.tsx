@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -56,6 +57,16 @@ export default async function ProfilePage() {
             Save notifications
           </Button>
         </ActionForm>
+      </Card>
+
+      <Card className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Two-step sign-in</h2>
+          <p className="text-xs text-muted-foreground">A code from your phone in addition to your password. Recommended for owners and managers.</p>
+        </div>
+        <Link href="/account/security" className="text-sm font-medium text-primary underline underline-offset-4">
+          Manage →
+        </Link>
       </Card>
 
       <Card>

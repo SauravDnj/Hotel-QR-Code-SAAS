@@ -28,7 +28,7 @@ export default async function PlatformPage() {
           SaaS operator · all actions are audited
         </span>
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-primary underline-offset-4 hover:underline">
+          <Link href="/dashboard" className="text-primary underline underline-offset-4">
             My hotel workspace
           </Link>
           <form action={logoutAction}>
@@ -46,8 +46,11 @@ export default async function PlatformPage() {
           </Badge>
         ))}
         <span className="ml-2 font-medium">MRR (active paid plans): {mrr}</span>
-        <Link href="/platform/plans" className="ml-auto text-primary underline-offset-4 hover:underline">
+        <Link href="/platform/plans" className="ml-auto text-primary underline underline-offset-4">
           Plans & limits →
+        </Link>
+        <Link href="/platform/support" className="text-primary underline underline-offset-4">
+          Support & operations →
         </Link>
       </div>
       {tenants.length === 0 ? (

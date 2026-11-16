@@ -50,6 +50,13 @@
       "when": 1794860040600,
       "tag": "0006_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794863534778,
+      "tag": "0007_hardening",
+      "breakpoints": true
     }
   ]
 }

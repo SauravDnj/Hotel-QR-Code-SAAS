@@ -206,7 +206,7 @@ export default async function RoomsPage({
               {result.items.map((r) => (
                 <tr key={r.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium">
-                    <Link href={`${base}/${r.id}`} className="text-primary underline-offset-4 hover:underline">
+                    <Link href={`${base}/${r.id}`} className="text-primary underline underline-offset-4">
                       {r.roomCode}
                     </Link>
                   </td>

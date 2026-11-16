@@ -66,7 +66,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
         ))}
         <Link
           href={href(view, !mine)}
-          aria-pressed={mine}
+          aria-current={mine ? "true" : undefined}
           className={cn("rounded-full border border-border px-3 py-1.5", mine ? "bg-accent text-accent-foreground" : "bg-surface hover:bg-surface-muted")}
         >
           Assigned to me

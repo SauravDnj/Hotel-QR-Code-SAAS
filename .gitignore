@@ -53,3 +53,6 @@ desktop.ini
 
 # ---------- Local scratch ----------
 /scaffold-tmp/
+
+# Logical database backups (contain personal data)
+/backups

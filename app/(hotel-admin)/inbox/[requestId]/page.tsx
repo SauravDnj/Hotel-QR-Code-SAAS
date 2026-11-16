@@ -35,7 +35,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-5">
-      <Link href="/inbox" className="text-sm text-primary underline-offset-4 hover:underline">
+      <Link href="/inbox" className="text-sm text-primary underline underline-offset-4">
         ← All requests
       </Link>
       <div className="flex flex-wrap items-center gap-2">

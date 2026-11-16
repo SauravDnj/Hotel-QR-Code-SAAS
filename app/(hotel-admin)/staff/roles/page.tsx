@@ -52,7 +52,7 @@ export default async function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/staff" className="text-sm text-primary underline-offset-4 hover:underline">
+      <Link href="/staff" className="text-sm text-primary underline underline-offset-4">
         ← Staff
       </Link>
       <div>

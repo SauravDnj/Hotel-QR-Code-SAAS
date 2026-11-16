@@ -49,7 +49,7 @@ export default async function PropertiesPage() {
               {rows.map((p) => (
                 <tr key={p.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium">
-                    <Link href={`/properties/${p.id}`} className="text-primary underline-offset-4 hover:underline">
+                    <Link href={`/properties/${p.id}`} className="text-primary underline underline-offset-4">
                       {p.name}
                     </Link>
                   </td>

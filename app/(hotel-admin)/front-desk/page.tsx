@@ -39,7 +39,7 @@ export default async function FrontDeskPage({ searchParams }: { searchParams: Pr
         <h1 className="text-2xl font-semibold tracking-tight">Front desk</h1>
         <p className="text-sm text-muted-foreground">
           {selected.name}: {stays.length} in-house · {available.length} room{available.length === 1 ? "" : "s"} ready.{" "}
-          <Link href={`/housekeeping?property=${selected.id}`} className="text-primary underline-offset-4 hover:underline">
+          <Link href={`/housekeeping?property=${selected.id}`} className="text-primary underline underline-offset-4">
             Room readiness →
           </Link>
         </p>
