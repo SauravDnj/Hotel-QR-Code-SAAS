@@ -48,6 +48,8 @@ export const serviceItems = pgTable(
     ackMessage: text("ack_message"),
     priority: requestPriority("priority").notNull().default("normal"),
     targetMinutes: integer("target_minutes").notNull().default(15),
+    /** Escalate to managers when a request is not accepted within targetMinutes (Phase 5). */
+    escalate: boolean("escalate").notNull().default(true),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,
   },
@@ -92,6 +94,9 @@ export const serviceRequests = pgTable(
     status: requestStatus("status").notNull().default("new"),
     priority: requestPriority("priority").notNull().default("normal"),
     targetMinutes: integer("target_minutes").notNull().default(15),
+    /** Snapshot of the service setting; null = never escalate. */
+    escalateAfterMinutes: integer("escalate_after_minutes"),
+    escalatedAt: timestamp("escalated_at", { withTimezone: true }),
     quantity: integer("quantity"),
     option: text("option"),
     guestNote: text("guest_note"),

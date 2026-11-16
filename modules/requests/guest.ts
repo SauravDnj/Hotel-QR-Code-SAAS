@@ -143,6 +143,7 @@ export async function submitGuestRequest(
           roomCode: qr.roomCode,
           priority: item.priority,
           targetMinutes: item.targetMinutes,
+          escalateAfterMinutes: item.escalate ? item.targetMinutes : null,
           ackMessage: item.ackMessage,
           quantity,
           option,

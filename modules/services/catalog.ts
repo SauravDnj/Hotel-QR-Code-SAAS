@@ -130,6 +130,7 @@ export const serviceInputSchema = z
     ackMessage: optionalText(200),
     priority: z.enum(requestPriority.enumValues).default("normal"),
     targetMinutes: z.coerce.number().int().min(1).max(1440).default(15),
+    escalate: checkbox,
     sortOrder: z.coerce.number().int().min(0).max(999).default(0),
   })
   .refine((v) => (v.availableFrom === null) === (v.availableTo === null), {

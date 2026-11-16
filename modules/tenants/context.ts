@@ -53,6 +53,7 @@ export async function loadTenantContext(
       assignmentId: userRoleAssignments.id,
       roleKey: roles.key,
       propertyId: userRoleAssignments.propertyId,
+      departmentId: userRoleAssignments.departmentId,
       permissionKey: permissions.key,
     })
     .from(userRoleAssignments)
@@ -70,7 +71,7 @@ export async function loadTenantContext(
   for (const r of rows) {
     let grant = byAssignment.get(r.assignmentId);
     if (!grant) {
-      grant = { roleKey: r.roleKey, propertyId: r.propertyId, permissions: new Set() };
+      grant = { roleKey: r.roleKey, propertyId: r.propertyId, departmentId: r.departmentId, permissions: new Set() };
       byAssignment.set(r.assignmentId, grant);
     }
     grant.permissions.add(r.permissionKey as PermissionKey);

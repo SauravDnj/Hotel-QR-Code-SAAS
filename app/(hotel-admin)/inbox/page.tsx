@@ -12,6 +12,7 @@ import { allowedActions, inboxMarker, listInbox } from "@/modules/requests/staff
 import { ACTIONS, REASON_REQUIRED, STAFF_STATUS_LABEL } from "@/modules/requests/state";
 import { transitionAction } from "./actions";
 import { LiveInbox } from "./live-inbox";
+import { getProfile } from "@/modules/staff/profile";
 import { ageLabel, minutesSince, PRIORITY_TONE, STATUS_TONE } from "./ui";
 
 export const metadata: Metadata = { title: "Requests" };
@@ -31,7 +32,11 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const db = getDb();
   const view = VIEWS.some((v) => v.key === sp.view) ? (sp.view as (typeof VIEWS)[number]["key"]) : "active";
   const mine = sp.mine === "1";
-  const [items, marker] = await Promise.all([listInbox(db, ctx, { view, mine: mine ? "1" : undefined }), inboxMarker(db, ctx)]);
+  const [items, marker, profile] = await Promise.all([
+    listInbox(db, ctx, { view, mine: mine ? "1" : undefined }),
+    inboxMarker(db, ctx),
+    getProfile(db, ctx),
+  ]);
   const href = (v: string, m: boolean) => `/inbox?view=${v}${m ? "&mine=1" : ""}`;
 
   return (
@@ -41,7 +46,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
           <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
           <p className="text-sm text-muted-foreground">Guest requests for your departments. Newest and most urgent first.</p>
         </div>
-        <LiveInbox initial={marker} />
+        <LiveInbox initial={marker} prefs={{ sound: profile.notifySound, scope: profile.notifyScope }} />
       </div>
 
       <nav aria-label="Request views" className="flex flex-wrap gap-2 text-sm">
@@ -88,7 +93,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
                       <span className="font-medium">{r.serviceName}</span>
                       <Badge tone={STATUS_TONE[r.status]}>{STAFF_STATUS_LABEL[r.status]}</Badge>
                       {r.priority !== "normal" && <Badge tone={PRIORITY_TONE[r.priority]}>{r.priority}</Badge>}
-                      {overdue && <Badge tone="danger">Overdue</Badge>}
+                      {r.escalatedAt && r.status === "new" ? <Badge tone="danger">Escalated</Badge> : overdue && <Badge tone="danger">Overdue</Badge>}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {[r.quantity !== null ? `× ${r.quantity}` : null, r.option, r.departmentName].filter(Boolean).join(" · ")}

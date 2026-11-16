@@ -9,9 +9,12 @@ export const metadata: Metadata = {
   description: "Room QR guest services and hotel operations.",
   // Staff/admin app: keep private pages out of search engines.
   robots: { index: false, follow: false },
+  // Staff PWA (app/manifest.ts): home-screen install on iOS/Android.
+  appleWebApp: { capable: true, title: "Hotel Staff", statusBarStyle: "default" },
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#1f2a44" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

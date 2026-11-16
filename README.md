@@ -3,7 +3,7 @@
 Multi-tenant hotel guest-services and operations SaaS. Product and engineering docs are in
 [`hotel-saas-documentation/`](hotel-saas-documentation/README.md), which is the source of truth.
 
-**Current status:** Phases 0–4 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox) of
+**Current status:** Phases 0–5 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA) of
 [`ROADMAP_AND_PHASES.md`](hotel-saas-documentation/07-delivery/ROADMAP_AND_PHASES.md).
 
 ## Stack
@@ -26,7 +26,8 @@ lib/                 auth, crypto (QR tokens, AES-GCM secrets), db (schema + cli
 modules/             Domain services: tenants, properties, platform, audit, rbac,
                      rooms (floors, room types, rooms, status history), departments,
                      qr (room QR lifecycle), guest-portal (settings + public resolution),
-                     services (catalogue), requests (guest submit, staff inbox, state machine), realtime (outbox)
+                     services (catalogue), requests (guest submit, staff inbox, state machine, escalation),
+                     realtime (outbox), staff (invitations, assignments, custom roles, profile)
 drizzle/             Generated SQL migrations (committed, reviewed)
 scripts/             seed (RBAC sync), create-platform-admin
 tests/               unit, integration (in-process Postgres via PGlite), e2e (Playwright)
@@ -129,8 +130,39 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
   60 s with it, and on focus/reconnect), so requests made during a provider outage or while a device was
   offline appear on reconnect. Without `ABLY_API_KEY` everything works on polling alone.
 - Optional `/api/cron/outbox` (Bearer `CRON_SECRET`) sweeps retries; inbox polls also drain the outbox.
-- Departments currently come from the staff member's role. Phase 5 adds explicit staff↔department
-  assignment and staff invitations.
+- Optional `/api/cron/outbox` also runs escalation (see Phase 5).
+
+## Staff, roles and operations (Phase 5)
+
+- **Staff** (`/staff`, `staff.view` / `staff.manage`): invite by link (no email provider yet, so the link is
+  shown once to copy and share). Invites are random 32-byte tokens, HMAC-hashed, single use, 7-day expiry,
+  revocable, one open invite per email. New people choose a password (policy enforced); existing accounts
+  must enter their current password to join another hotel. Accepting creates membership + the invited role
+  in one transaction and signs them straight into `/inbox`.
+- **Role assignments** = role + optional property + optional **department**. An explicit department
+  narrows any role to that department. Otherwise department roles imply their department, and owners,
+  managers, reception and custom roles cover all departments of their properties
+  (`lib/permissions/departments.ts`).
+- **Guard rails** (`modules/staff/service.ts`, enforced on the server):
+  - no privilege escalation: you can only grant roles, or build custom roles from, permissions you hold
+    yourself for that scope;
+  - nobody can change their own access;
+  - you cannot change someone who holds access you don't;
+  - the last tenant-wide owner cannot be removed or deactivated;
+  - deactivation takes effect on that person's next request;
+  - every change is audited.
+- **Custom roles** (`/staff/roles`, `role.manage`): explicit permission picker; system roles are read-only;
+  roles in use cannot be deleted; tenant-private.
+- **Profile** (`/profile`): name, password change (bumps `session_version`, signing out every session) and
+  notification preferences (sound on/off; alert for all requests or only those assigned to me).
+- **Escalation:** services have "escalate if not accepted within target time" (default on). Overdue `new`
+  requests are flagged once, logged in history and re-broadcast. The trigger is durable (inbox polls and
+  `/api/cron/outbox`), never an in-memory timer. Escalated requests show a red badge in the inbox and sidebar.
+- **Staff PWA:** `app/manifest.ts` ("Hotel Staff", opens `/inbox`), icons in `public/icons`, and
+  `public/sw.js`. The service worker caches only `offline.html` and never caches pages or API data.
+  Guests are never asked to install anything.
+- **Permission matrix:** `tests/integration/permission-matrix.test.ts` runs every system role, tenant-wide
+  and scoped to another property, against representative operations through the real services (127 cases).
 
 ## Security model (Phase 1)
 

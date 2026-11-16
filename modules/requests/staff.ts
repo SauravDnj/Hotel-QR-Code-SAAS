@@ -13,7 +13,7 @@ import type { RequestStatus } from "@/lib/db/schema/enums";
 import { conflict, forbidden, notFound } from "@/lib/errors";
 import { assertTenantWritable, authorize, canWrite, type TenantContext } from "@/lib/permissions/authorize";
 import type { PermissionKey } from "@/lib/permissions/catalog";
-import { departmentScope, inDepartmentScope, roleDepartments } from "@/lib/permissions/departments";
+import { departmentScope, grantDepartments, inDepartmentScope, isEmptyScope } from "@/lib/permissions/departments";
 import { optionalText } from "@/lib/validation/common";
 import { writeAudit } from "@/modules/audit/service";
 import { enqueueRequestEvent } from "@/modules/realtime/outbox";
@@ -34,10 +34,13 @@ export function requestScopeCondition(ctx: TenantContext, permission: Permission
     if (!g.permissions.has(permission)) continue;
     const conds: SQL[] = [];
     if (g.propertyId) conds.push(eq(serviceRequests.propertyId, g.propertyId));
-    const depts = roleDepartments(g.roleKey);
+    const depts = grantDepartments(g);
     if (depts !== "all") {
-      if (depts.length === 0) continue;
-      conds.push(inArray(departments.key, [...depts]));
+      const either: SQL[] = [];
+      if (depts.keys.size) either.push(inArray(departments.key, [...depts.keys]));
+      if (depts.ids.size) either.push(inArray(serviceRequests.departmentId, [...depts.ids]));
+      if (either.length === 0) continue;
+      conds.push(or(...either)!);
     }
     parts.push(conds.length ? and(...conds)! : sql`true`);
   }
@@ -72,12 +75,14 @@ export async function listInbox(db: Db, ctx: TenantContext, raw: InboxFilter = {
       serviceName: serviceRequests.serviceName,
       departmentName: serviceRequests.departmentName,
       departmentKey: departments.key,
+      departmentId: serviceRequests.departmentId,
       status: serviceRequests.status,
       priority: serviceRequests.priority,
       quantity: serviceRequests.quantity,
       option: serviceRequests.option,
       guestNote: serviceRequests.guestNote,
       targetMinutes: serviceRequests.targetMinutes,
+      escalatedAt: serviceRequests.escalatedAt,
       submittedAt: serviceRequests.submittedAt,
       updatedAt: serviceRequests.updatedAt,
       assignedUserId: serviceRequests.assignedUserId,
@@ -110,21 +115,24 @@ export async function listInbox(db: Db, ctx: TenantContext, raw: InboxFilter = {
 /** Cheap change marker for polling clients and the sidebar badge. */
 export async function inboxMarker(db: Db, ctx: TenantContext) {
   const scope = requestScopeCondition(ctx, "request.view");
-  if (!scope) return { latest: null as string | null, newCount: 0 };
+  if (!scope) return { latest: null as string | null, newCount: 0, mineCount: 0, escalatedCount: 0 };
+  const open = sql`${serviceRequests.status} in ('new', 'acknowledged', 'in_progress', 'reopened')`;
   const [row] = await db
     .select({
       latest: max(serviceRequests.updatedAt),
       newCount: sql<number>`count(*) filter (where ${serviceRequests.status} = 'new')`.mapWith(Number),
+      mineCount: sql<number>`count(*) filter (where ${serviceRequests.assignedUserId} = ${ctx.userId} and ${open})`.mapWith(Number),
+      escalatedCount: sql<number>`count(*) filter (where ${serviceRequests.status} = 'new' and ${serviceRequests.escalatedAt} is not null)`.mapWith(Number),
     })
     .from(serviceRequests)
     .innerJoin(departments, eq(departments.id, serviceRequests.departmentId))
-    .where(and(scope, inArray(serviceRequests.status, ACTIVE_STATUSES)));
-  const [anyRow] = await db
-    .select({ latest: max(serviceRequests.updatedAt) })
-    .from(serviceRequests)
-    .innerJoin(departments, eq(departments.id, serviceRequests.departmentId))
     .where(scope);
-  return { latest: anyRow?.latest ? new Date(anyRow.latest).toISOString() : null, newCount: row?.newCount ?? 0 };
+  return {
+    latest: row?.latest ? new Date(row.latest).toISOString() : null,
+    newCount: row?.newCount ?? 0,
+    mineCount: row?.mineCount ?? 0,
+    escalatedCount: row?.escalatedCount ?? 0,
+  };
 }
 
 async function loadScoped(db: Db, ctx: TenantContext, requestId: string, permission: PermissionKey, lock = false) {
@@ -139,9 +147,9 @@ async function loadScoped(db: Db, ctx: TenantContext, requestId: string, permiss
   const [row] = lock ? await q.for("update", { of: serviceRequests }) : await q;
   if (!row) throw notFound("Request not found.");
   const viewScope = departmentScope(ctx, "request.view", row.r.propertyId);
-  if (!inDepartmentScope(viewScope, row.departmentKey)) throw notFound("Request not found.");
+  if (!inDepartmentScope(viewScope, { id: row.r.departmentId, key: row.departmentKey })) throw notFound("Request not found.");
   authorize(ctx, permission, { propertyId: row.r.propertyId });
-  if (!inDepartmentScope(departmentScope(ctx, permission, row.r.propertyId), row.departmentKey)) throw forbidden();
+  if (!inDepartmentScope(departmentScope(ctx, permission, row.r.propertyId), { id: row.r.departmentId, key: row.departmentKey })) throw forbidden();
   return row;
 }
 
@@ -267,8 +275,8 @@ export async function listAssignableStaff(db: Db, ctx: TenantContext, requestId:
     const mctx = await loadTenantContext(db, m.userId, ctx.tenantId);
     if (!mctx) continue;
     const s = departmentScope(mctx, "request.update", r.propertyId);
-    if (s !== "all" && s.size === 0) continue;
-    if (inDepartmentScope(s, departmentKey)) out.push(m);
+    if (isEmptyScope(s)) continue;
+    if (inDepartmentScope(s, { id: r.departmentId, key: departmentKey })) out.push(m);
   }
   return out;
 }
@@ -311,13 +319,13 @@ export async function assignRequest(db: Db, ctx: TenantContext, requestId: strin
 /** UI helper: actions this user may take on a request (the server re-checks on submit). */
 export function allowedActions(
   ctx: TenantContext,
-  r: { status: RequestStatus; propertyId: string; departmentKey: string },
+  r: { status: RequestStatus; propertyId: string; departmentId: string; departmentKey: string },
 ): StaffAction[] {
   return (Object.keys(ACTIONS) as StaffAction[]).filter((a) => {
     const spec = ACTIONS[a];
     if (!canTransition(r.status, a)) return false;
     if (!canWrite(ctx, spec.permission, { propertyId: r.propertyId })) return false;
-    return inDepartmentScope(departmentScope(ctx, spec.permission, r.propertyId), r.departmentKey);
+    return inDepartmentScope(departmentScope(ctx, spec.permission, r.propertyId), { id: r.departmentId, key: r.departmentKey });
   });
 }
 
@@ -333,7 +341,7 @@ export async function subscribableChannels(db: Db, ctx: TenantContext) {
     } catch {
       return false;
     }
-    return inDepartmentScope(departmentScope(ctx, "request.view", d.propertyId), d.key);
+    return inDepartmentScope(departmentScope(ctx, "request.view", d.propertyId), d);
   });
 }
 

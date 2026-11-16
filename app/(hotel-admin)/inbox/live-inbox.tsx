@@ -37,7 +37,9 @@ function beep() {
  *   while offline, asleep or during a provider outage.
  * Messages carry ids only; the page re-fetches details through authorised server code.
  */
-export function LiveInbox({ initial }: { initial: { latest: string | null; newCount: number } }) {
+type Marker = { latest: string | null; newCount: number; mineCount: number };
+
+export function LiveInbox({ initial, prefs }: { initial: Marker; prefs: { sound: boolean; scope: "all" | "mine" } }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("connecting");
   const [sound, setSound] = useState(false);
@@ -47,14 +49,16 @@ export function LiveInbox({ initial }: { initial: { latest: string | null; newCo
 
   useEffect(() => {
     try {
-      const on = localStorage.getItem(SOUND_KEY) === "on";
+      // A per-device choice overrides the profile default (set in My profile).
+      const stored = localStorage.getItem(SOUND_KEY);
+      const on = stored === null ? prefs.sound : stored === "on";
       soundRef.current = on;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from browser storage
       setSound(on);
     } catch {
       /* storage unavailable */
     }
-  }, []);
+  }, [prefs.sound]);
 
   const refresh = useCallback(() => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
@@ -65,18 +69,19 @@ export function LiveInbox({ initial }: { initial: { latest: string | null; newCo
     try {
       const res = await fetch("/api/inbox/marker", { cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
-      const next = (await res.json()) as { latest: string | null; newCount: number };
+      const next = (await res.json()) as Marker;
       const prev = marker.current;
       marker.current = next;
       if (next.latest !== prev.latest || next.newCount !== prev.newCount) {
-        if (next.newCount > prev.newCount && soundRef.current) beep();
+        const grew = prefs.scope === "mine" ? next.mineCount > prev.mineCount : next.newCount > prev.newCount;
+        if (grew && soundRef.current) beep();
         refresh();
       }
       setMode((m) => (m === "offline" ? "polling" : m));
     } catch {
       setMode("offline");
     }
-  }, [refresh]);
+  }, [refresh, prefs.scope]);
 
   // Realtime subscription (optional) with token refresh and reconnect backoff.
   useEffect(() => {

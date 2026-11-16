@@ -34,6 +34,7 @@ type Values = {
   ackMessage?: string | null;
   priority?: string;
   targetMinutes?: number;
+  escalate?: boolean;
   sortOrder?: number;
 };
 
@@ -123,6 +124,10 @@ function ServiceFields({ v, departments, idp }: { v: Values; departments: { id: 
       <label className="flex min-h-11 items-center gap-2 text-sm">
         <input type="checkbox" name="enabled" defaultChecked={v.enabled ?? true} className="size-4" />
         Shown to guests
+      </label>
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <input type="checkbox" name="escalate" defaultChecked={v.escalate ?? true} className="size-4" />
+        Escalate to managers if not accepted within the target time
       </label>
     </div>
   );

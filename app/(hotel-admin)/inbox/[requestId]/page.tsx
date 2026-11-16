@@ -28,7 +28,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const actions = allowedActions(ctx, r);
   const canAssign =
     canWrite(ctx, "request.assign", { propertyId: r.propertyId }) &&
-    inDepartmentScope(departmentScope(ctx, "request.assign", r.propertyId), r.departmentKey) &&
+    inDepartmentScope(departmentScope(ctx, "request.assign", r.propertyId), { id: r.departmentId, key: r.departmentKey }) &&
     r.status !== "completed" &&
     r.status !== "cancelled";
   const staff = canAssign ? await listAssignableStaff(db, ctx, r.id) : [];

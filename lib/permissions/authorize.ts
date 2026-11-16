@@ -6,6 +6,8 @@ export interface RoleGrant {
   roleKey: string;
   /** null = applies to every property in the tenant. */
   propertyId: string | null;
+  /** null/undefined = every department the role covers (see lib/permissions/departments.ts). */
+  departmentId?: string | null;
   permissions: ReadonlySet<PermissionKey>;
 }
 

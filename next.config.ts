@@ -43,6 +43,9 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
       { source: "/r/:token*", headers: bearerPage },
       { source: "/s/:token*", headers: bearerPage },
+      { source: "/invite/:token*", headers: bearerPage },
+      // The service worker must always be revalidated so fixes roll out immediately.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }] },
     ];
   },
   turbopack: {

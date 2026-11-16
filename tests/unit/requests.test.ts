@@ -4,7 +4,7 @@ import { signTokenRequest } from "@/lib/realtime/ably";
 import { departmentChannel } from "@/lib/realtime/channels";
 import type { TenantContext } from "@/lib/permissions/authorize";
 import { SYSTEM_ROLES } from "@/lib/permissions/catalog";
-import { departmentScope } from "@/lib/permissions/departments";
+import { departmentScope, inDepartmentScope } from "@/lib/permissions/departments";
 import { backoffSeconds } from "@/modules/realtime/outbox";
 import { ACTIONS, availableActions, canTransition, GUEST_STATUS, STAFF_ACTIONS } from "@/modules/requests/state";
 import { isAvailableAt, localTime } from "@/modules/services/catalog";
@@ -57,8 +57,8 @@ describe("request state machine", () => {
   });
 });
 
-describe("department scope from roles", () => {
-  const ctx = (grants: { roleKey: string; propertyId: string | null }[]): TenantContext => ({
+describe("department scope from roles and assignments", () => {
+  const ctx = (grants: { roleKey: string; propertyId: string | null; departmentId?: string | null }[]): TenantContext => ({
     userId: "u",
     membershipId: "m",
     tenantId: "t",
@@ -66,11 +66,19 @@ describe("department scope from roles", () => {
     tenantStatus: "active",
     grants: grants.map((g) => ({ ...g, permissions: new Set(["request.view" as const]) })),
   });
+  const keys = (...k: string[]) => ({ keys: new Set(k), ids: new Set<string>() });
 
-  it("maps department roles to their department and managers to all", () => {
-    expect(departmentScope(ctx([{ roleKey: "housekeeping", propertyId: null }]), "request.view", "p1")).toEqual(new Set(["housekeeping"]));
+  it("maps department roles to their department; managers and custom roles to all", () => {
+    expect(departmentScope(ctx([{ roleKey: "housekeeping", propertyId: null }]), "request.view", "p1")).toEqual(keys("housekeeping"));
     expect(departmentScope(ctx([{ roleKey: "manager", propertyId: null }]), "request.view", "p1")).toBe("all");
-    expect(departmentScope(ctx([{ roleKey: "custom_thing", propertyId: null }]), "request.view", "p1")).toEqual(new Set());
+    expect(departmentScope(ctx([{ roleKey: "custom_role", propertyId: null }]), "request.view", "p1")).toBe("all");
+  });
+
+  it("an explicit department on the assignment narrows even a manager", () => {
+    const s = departmentScope(ctx([{ roleKey: "manager", propertyId: "p1", departmentId: "d9" }]), "request.view", "p1");
+    expect(s).toEqual({ keys: new Set(), ids: new Set(["d9"]) });
+    expect(inDepartmentScope(s, { id: "d9", key: "spa" })).toBe(true);
+    expect(inDepartmentScope(s, { id: "d1", key: "reception" })).toBe(false);
   });
 
   it("respects property scoping of each grant", () => {
@@ -78,9 +86,9 @@ describe("department scope from roles", () => {
       { roleKey: "housekeeping", propertyId: "p1" },
       { roleKey: "maintenance", propertyId: "p2" },
     ]);
-    expect(departmentScope(c, "request.view", "p1")).toEqual(new Set(["housekeeping"]));
-    expect(departmentScope(c, "request.view", "p2")).toEqual(new Set(["maintenance"]));
-    expect(departmentScope(c, "request.view", "p3")).toEqual(new Set());
+    expect(departmentScope(c, "request.view", "p1")).toEqual(keys("housekeeping"));
+    expect(departmentScope(c, "request.view", "p2")).toEqual(keys("maintenance"));
+    expect(departmentScope(c, "request.view", "p3")).toEqual(keys());
   });
 });
 

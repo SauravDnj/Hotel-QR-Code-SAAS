@@ -1,6 +1,7 @@
 import { isNull, sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   foreignKey,
   index,
   integer,
@@ -13,6 +14,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { membershipStatus, userStatus } from "./enums";
+import { departments } from "./structure";
 import { properties, tenants, timestamps } from "./tenancy";
 
 export const users = pgTable("users", {
@@ -40,6 +42,10 @@ export const tenantMemberships = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     status: membershipStatus("status").notNull().default("active"),
+    /** Staff notification preferences (Phase 5): play a sound for new requests. */
+    notifySound: boolean("notify_sound").notNull().default(true),
+    /** "all" = alert for every new request in scope; "mine" = only requests assigned to me. */
+    notifyScope: text("notify_scope").notNull().default("all"),
     ...timestamps,
   },
   (t) => [
@@ -99,7 +105,8 @@ export const userRoleAssignments = pgTable(
       .references(() => roles.id, { onDelete: "restrict" }),
     // null = all properties of the tenant.
     propertyId: uuid("property_id"),
-    // Department scope is added with the departments table (Phase 2/5).
+    /** null = every department the role covers; set = only this department (requires a property). */
+    departmentId: uuid("department_id"),
     createdByUserId: uuid("created_by_user_id").references(() => users.id),
     ...timestamps,
   },
@@ -115,6 +122,12 @@ export const userRoleAssignments = pgTable(
       columns: [t.propertyId, t.tenantId],
       foreignColumns: [properties.id, properties.tenantId],
     }).onDelete("cascade"),
+    foreignKey({
+      name: "ura_department_same_property_fk",
+      columns: [t.departmentId, t.propertyId, t.tenantId],
+      foreignColumns: [departments.id, departments.propertyId, departments.tenantId],
+    }).onDelete("cascade"),
+    check("ura_department_needs_property", sql`${t.departmentId} is null or ${t.propertyId} is not null`),
     index("ura_membership_idx").on(t.membershipId),
   ],
 );
