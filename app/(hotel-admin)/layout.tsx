@@ -9,8 +9,10 @@ import { inboxMarker } from "@/modules/requests/staff";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import type { PermissionKey } from "@/lib/permissions/catalog";
 
-const NAV: { href: string; label: string; permission?: PermissionKey }[] = [
+const NAV: { href: string; label: string; permission?: PermissionKey; anyProperty?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/front-desk", label: "Front desk", permission: "stay.view", anyProperty: true },
+  { href: "/housekeeping", label: "Housekeeping", permission: "housekeeping.view", anyProperty: true },
   { href: "/rooms", label: "Rooms" },
   { href: "/properties", label: "Properties" },
   { href: "/staff", label: "Staff", permission: "staff.view" },
@@ -22,7 +24,12 @@ export default async function HotelAdminLayout({ children }: { children: React.R
   const user = await requireUser();
   const ctx = await requireTenantContext();
   // Navigation hiding is cosmetic; every page and action re-checks on the server.
-  const items = NAV.filter((n) => !n.permission || can(ctx, n.permission));
+  const items = NAV.filter((n) => {
+    if (!n.permission) return true;
+    if (!n.anyProperty) return can(ctx, n.permission);
+    const s = propertyScope(ctx, n.permission);
+    return s === "all" || s.length > 0;
+  });
   const requestScope = propertyScope(ctx, "request.view");
   const showInbox = requestScope === "all" || requestScope.length > 0;
   const marker = showInbox ? await inboxMarker(getDb(), ctx) : null;

@@ -36,6 +36,13 @@
       "when": 1794853341504,
       "tag": "0004_staff_rbac",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794856163801,
+      "tag": "0005_stays_housekeeping",
+      "breakpoints": true
     }
   ]
 }

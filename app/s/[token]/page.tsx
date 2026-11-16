@@ -8,7 +8,7 @@ import { formatDateTime } from "@/lib/utils";
 import { getGuestRequestStatus } from "@/modules/requests/guest";
 import { RememberRequest } from "../../r/my-requests";
 import { GuestShell } from "../../r/guest-shell";
-import { AutoRefresh } from "./auto-refresh";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export const metadata: Metadata = {
   title: { absolute: "Your request" },

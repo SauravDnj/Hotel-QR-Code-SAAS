@@ -56,6 +56,11 @@ export const requestPriority = pgEnum("request_priority", ["low", "normal", "hig
 
 export const serviceNoteMode = pgEnum("service_note_mode", ["none", "optional", "required"]);
 
+// Phase 6: occupancy is derived from stays; never stored on the room.
+export const stayStatus = pgEnum("stay_status", ["checked_in", "checked_out"]);
+export const housekeepingTaskType = pgEnum("housekeeping_task_type", ["cleaning", "inspection"]);
+export const housekeepingTaskStatus = pgEnum("housekeeping_task_status", ["open", "in_progress", "done", "cancelled"]);
+
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];
 export type RoomOperationalStatus = (typeof roomOperationalStatus.enumValues)[number];
 export type HousekeepingStatus = (typeof housekeepingStatus.enumValues)[number];
@@ -63,3 +68,5 @@ export type PropertyStatus = (typeof propertyStatus.enumValues)[number];
 export type QrStatus = (typeof qrStatus.enumValues)[number];
 export type RequestStatus = (typeof requestStatus.enumValues)[number];
 export type RequestPriority = (typeof requestPriority.enumValues)[number];
+export type StayStatus = (typeof stayStatus.enumValues)[number];
+export type HousekeepingTaskStatus = (typeof housekeepingTaskStatus.enumValues)[number];

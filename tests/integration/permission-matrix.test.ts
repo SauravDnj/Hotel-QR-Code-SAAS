@@ -17,6 +17,8 @@ import { createDefaultServices, createService, listServices } from "@/modules/se
 import { createRole } from "@/modules/staff/roles";
 import { createInvitation, listStaff } from "@/modules/staff/service";
 import { updateTenantSettings } from "@/modules/tenants/settings";
+import { startCleaning } from "@/modules/housekeeping/service";
+import { checkIn, listInHouse } from "@/modules/stays/service";
 import { addStaff, createTenantFixture, createTestDb, type TenantFixture } from "../helpers/db";
 
 /**
@@ -38,6 +40,9 @@ describe("role / scope permission matrix", () => {
   let qr: string;
   let svc: Record<string, { id: string; departmentId: string }>;
   let n = 0;
+  let floorId: string;
+  let catId: string;
+  const freshRoom = async () => (await createRoom(db, T.ctx, T.propertyId, { roomCode: `M${++n}`, floorId, categoryId: catId })).id;
 
   const request = async (key: string, extra: Record<string, string> = {}) => {
     const r = await submitGuestRequest(db, qr, { serviceId: svc[key].id, idempotencyKey: crypto.randomUUID(), ...extra }, { ip: null });
@@ -105,6 +110,21 @@ describe("role / scope permission matrix", () => {
       allowed: ["owner", "manager", "receptionist"],
       run: async (c) => transitionRequest(db, c, await request("reception"), "cancel", { note: "matrix" }),
     },
+    {
+      name: "check a guest in",
+      allowed: ["owner", "manager", "receptionist"],
+      run: async (c) => checkIn(db, c, T.propertyId, { roomId: await freshRoom(), guestName: "Matrix Guest", checkoutDate: "2099-01-01" }),
+    },
+    { name: "view in-house guests", allowed: ["owner", "manager", "receptionist"], run: (c) => listInHouse(db, c, T.propertyId) },
+    {
+      name: "start cleaning a dirty room",
+      allowed: ["owner", "manager", "housekeeping"],
+      run: async (c) => {
+        const r = await freshRoom();
+        await changeRoomStatus(db, T.ctx, T.propertyId, r, { dimension: "housekeeping", status: "dirty" });
+        return startCleaning(db, c, T.propertyId, r);
+      },
+    },
   ];
 
   const ctxFor: Partial<Record<SystemRoleKey, { wide: TenantContext; elsewhere: TenantContext }>> = {};
@@ -114,6 +134,8 @@ describe("role / scope permission matrix", () => {
     T = await createTenantFixture(db, { hotelName: "Matrix Hotel" });
     const floor = await createFloor(db, T.ctx, T.propertyId, { name: "Ground" });
     const cat = await createCategory(db, T.ctx, T.propertyId, { name: "Std", capacity: 2 });
+    floorId = floor.id;
+    catId = cat.id;
     roomId = (await createRoom(db, T.ctx, T.propertyId, { roomCode: "101", floorId: floor.id, categoryId: cat.id })).id;
     await createDefaultServices(db, T.ctx, T.propertyId);
     svc = Object.fromEntries((await listServices(db, T.ctx, T.propertyId)).items.map((i) => [i.key, i]));

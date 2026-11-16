@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db/types";
-import { floors, roomCategories, rooms, roomStatusHistory, users } from "@/lib/db/schema";
+import { floors, housekeepingTasks, roomCategories, rooms, roomStatusHistory, users } from "@/lib/db/schema";
 import {
   housekeepingStatus,
   roomOperationalStatus,
@@ -9,7 +9,7 @@ import {
   type RoomOperationalStatus,
 } from "@/lib/db/schema/enums";
 import { conflict, notFound } from "@/lib/errors";
-import type { TenantContext } from "@/lib/permissions/authorize";
+import { can, type TenantContext } from "@/lib/permissions/authorize";
 import { optionalText } from "@/lib/validation/common";
 import { writeAudit } from "@/modules/audit/service";
 import { idSchema, requireProperty } from "@/modules/properties/access";
@@ -322,6 +322,27 @@ export async function changeRoomStatus(
     const from = input.dimension === "operational" ? room.operationalStatus : room.housekeepingStatus;
     if (from === input.status) return room;
 
+    // Phase 6: marking a room clean/inspected by hand must not skip open cleaning or
+    // inspection work (checkout cannot silently make a room ready). Only someone who can
+    // manage rooms may override, which cancels the open tasks and is audited.
+    let overridden = 0;
+    if (input.dimension === "housekeeping" && (input.status === "clean" || input.status === "inspected")) {
+      const open = await tx
+        .select({ id: housekeepingTasks.id })
+        .from(housekeepingTasks)
+        .where(and(eq(housekeepingTasks.roomId, room.id), inArray(housekeepingTasks.status, ["open", "in_progress"])));
+      if (open.length) {
+        if (!can(ctx, "room.manage", { propertyId: property.id })) {
+          throw conflict("This room has open housekeeping work. Finish it on the Housekeeping board, or ask a manager.");
+        }
+        await tx
+          .update(housekeepingTasks)
+          .set({ status: "cancelled", completedAt: new Date(), completedByUserId: ctx.userId, notes: "Cancelled by manual status override" })
+          .where(inArray(housekeepingTasks.id, open.map((o) => o.id)));
+        overridden = open.length;
+      }
+    }
+
     const [updated] = await tx
       .update(rooms)
       .set(
@@ -341,6 +362,17 @@ export async function changeRoomStatus(
       actorUserId: ctx.userId,
       note: input.note,
     });
+    if (overridden > 0) {
+      await writeAudit(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        actorType: "user",
+        action: "room.housekeeping_override",
+        entityType: "room",
+        entityId: room.id,
+        metadata: { propertyId: property.id, roomCode: room.roomCode, from, to: input.status, cancelledTasks: overridden },
+      });
+    }
     if (input.dimension === "operational") {
       await writeAudit(tx, {
         tenantId: ctx.tenantId,

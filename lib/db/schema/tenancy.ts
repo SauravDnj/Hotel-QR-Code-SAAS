@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   char,
   index,
   pgTable,
@@ -49,6 +50,8 @@ export const properties = pgTable(
     timezone: text("timezone").notNull(),
     currency: char("currency", { length: 3 }).notNull(),
     status: propertyStatus("status").notNull().default("active"),
+    /** Housekeeping policy (Phase 6): a cleaned room must also pass inspection before it is ready. */
+    requireInspection: boolean("require_inspection").notNull().default(true),
     ...timestamps,
   },
   (t) => [

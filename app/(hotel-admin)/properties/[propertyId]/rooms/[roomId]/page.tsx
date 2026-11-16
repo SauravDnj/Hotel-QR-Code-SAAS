@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ActionForm, ConfirmButton } from "@/components/action-form";
 import { HOUSEKEEPING_LABELS, HousekeepingBadge, OPERATIONAL_LABELS, OperationalBadge } from "@/components/room-status";
 import { Button } from "@/components/ui/button";
-import { Alert, Card, EmptyState } from "@/components/ui/card";
+import { Alert, Badge, Card, EmptyState } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/form";
 import { requireTenantContext } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
@@ -17,6 +17,7 @@ import { getRoom, HOUSEKEEPING_STATUSES, listRoomHistory, OPERATIONAL_STATUSES }
 import { archiveRoomAction, changeRoomStatusAction, updateRoomAction } from "../../structure-actions";
 import { RoomForm } from "../room-forms";
 import { RoomQrCard } from "./room-qr-card";
+import { currentStay } from "@/modules/stays/service";
 
 export const metadata: Metadata = { title: "Room" };
 
@@ -46,10 +47,11 @@ export default async function RoomPage({
     if (err instanceof AppError && (err.code === "not_found" || err.code === "forbidden")) notFound();
     throw err;
   }
-  const [floors, categories, history] = await Promise.all([
+  const [floors, categories, history, stay] = await Promise.all([
     listFloors(db, ctx, propertyId),
     listCategories(db, ctx, propertyId),
     listRoomHistory(db, ctx, propertyId, room.id),
+    currentStay(db, ctx, propertyId, room.id),
   ]);
   const scope = { propertyId };
   const manage = canWrite(ctx, "room.manage", scope) && !room.archivedAt;
@@ -69,12 +71,22 @@ export default async function RoomPage({
           </p>
         </div>
         <div className="flex gap-2">
+          <Badge tone={stay ? "info" : "success"}>{stay ? "Occupied" : "Vacant"}</Badge>
           <OperationalBadge status={room.operationalStatus} />
           <HousekeepingBadge status={room.housekeepingStatus} />
         </div>
       </div>
 
       {created && <Alert tone="success">Room created.</Alert>}
+      {stay && (
+        <Alert tone="info">
+          Occupied{stay.guestName && <> by {stay.guestName}</>} since {formatDateTime(stay.checkInAt, room.property.timezone)}, due out{" "}
+          {formatDateTime(stay.expectedCheckoutAt, room.property.timezone)}.{" "}
+          <Link href={`/front-desk?property=${propertyId}`} className="underline underline-offset-4">
+            Front desk
+          </Link>
+        </Alert>
+      )}
       {room.archivedAt && <Alert tone="warning">This room is archived. Restore it to edit or change status.</Alert>}
 
       <div className="grid gap-4 md:grid-cols-2">

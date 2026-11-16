@@ -27,3 +27,43 @@ export function isValidTimezone(tz: string): boolean {
     return false;
   }
 }
+
+/** Offset (ms) of a timezone at a given instant: local wall time minus UTC. */
+function tzOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return asUtc - Math.floor(instant.getTime() / 1000) * 1000;
+}
+
+/**
+ * Converts a wall-clock date + time in a property's timezone (as typed by reception, e.g.
+ * "2026-11-20" "11:00") to the UTC instant. Handles DST by re-checking the offset.
+ */
+export function zonedToUtc(date: string, time: string, timeZone: string): Date {
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm] = time.split(":").map(Number);
+  const wall = Date.UTC(y, m - 1, d, hh, mm);
+  let utc = wall - tzOffsetMs(new Date(wall), timeZone);
+  utc = wall - tzOffsetMs(new Date(utc), timeZone);
+  return new Date(utc);
+}
+
+/** "YYYY-MM-DD" of an instant in a timezone. */
+export function localDate(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
+}
+
+/** Tomorrow's local calendar date in a timezone (default for checkout). */
+export function tomorrowIn(timeZone: string, now: Date = new Date()): string {
+  return localDate(new Date(now.getTime() + 86400_000), timeZone);
+}

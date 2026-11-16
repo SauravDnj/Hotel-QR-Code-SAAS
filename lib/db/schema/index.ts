@@ -6,3 +6,4 @@ export * from "./structure";
 export * from "./guest";
 export * from "./requests";
 export * from "./staff";
+export * from "./stays";

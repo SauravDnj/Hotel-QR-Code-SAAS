@@ -3,7 +3,7 @@
 Multi-tenant hotel guest-services and operations SaaS. Product and engineering docs are in
 [`hotel-saas-documentation/`](hotel-saas-documentation/README.md), which is the source of truth.
 
-**Current status:** Phases 0–5 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA) of
+**Current status:** Phases 0–6 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA, check-in/out & housekeeping) of
 [`ROADMAP_AND_PHASES.md`](hotel-saas-documentation/07-delivery/ROADMAP_AND_PHASES.md).
 
 ## Stack
@@ -27,7 +27,8 @@ modules/             Domain services: tenants, properties, platform, audit, rbac
                      rooms (floors, room types, rooms, status history), departments,
                      qr (room QR lifecycle), guest-portal (settings + public resolution),
                      services (catalogue), requests (guest submit, staff inbox, state machine, escalation),
-                     realtime (outbox), staff (invitations, assignments, custom roles, profile)
+                     realtime (outbox), staff (invitations, assignments, custom roles, profile),
+                     stays (check-in/out), housekeeping (tasks, inspection, readiness)
 drizzle/             Generated SQL migrations (committed, reviewed)
 scripts/             seed (RBAC sync), create-platform-admin
 tests/               unit, integration (in-process Postgres via PGlite), e2e (Playwright)
@@ -163,6 +164,46 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
   Guests are never asked to install anything.
 - **Permission matrix:** `tests/integration/permission-matrix.test.ts` runs every system role, tenant-wide
   and scoped to another property, against representative operations through the real services (127 cases).
+
+## Check-in/out and housekeeping (Phase 6)
+
+- **Not a reservation system** (no OTA/channel manager). Reception checks guests in and out at
+  `/front-desk`; housekeeping works from `/housekeeping`.
+- **Three separate room dimensions:**
+  - operational status (stored);
+  - housekeeping status (stored);
+  - occupancy, which is **derived** from an active stay and never stored on the room.
+- **Readiness** (`modules/housekeeping/readiness.ts`):
+  - Out of service: not operational, or housekeeping status is blocked.
+  - Occupied: the room has an active stay.
+  - Otherwise by housekeeping status: dirty → needs cleaning; in progress → cleaning; clean with an
+    open inspection task → awaiting inspection; inspected, or clean with no pending inspection → ready.
+- **Check-in** (`stay.check_in`) is only allowed into a ready room. It locks the room row; a partial unique
+  index allows at most one checked-in stay per room. Expected checkout is entered in the property's local
+  time. The guest record is minimal (name, optional phone/email).
+- **Check-out** (`stay.check_out`), in one transaction with the stay row locked:
+  - the stay is closed with the actual time;
+  - housekeeping status becomes `dirty` (with a history row);
+  - **exactly one** cleaning task is created (partial unique index: one open task per room and type).
+
+  A double checkout gets "already checked out" and no second task.
+- **Housekeeping** (`housekeeping.manage`):
+  - Start cleaning: the room becomes in progress.
+  - Finish: the room becomes clean. If the property requires inspection (the default; managers toggle it
+    on the board), an inspection task is created.
+  - Pass: the room becomes inspected, i.e. ready.
+  - Fail (reason required): the room becomes dirty again with a new cleaning task.
+
+  Separation of duties: the person who cleaned a room cannot pass its inspection unless they hold
+  `room.manage`.
+- **No skipping the workflow:** setting a room clean/inspected by hand while it has open tasks is refused
+  for housekeepers. Managers (`room.manage`) can override; the open tasks are cancelled and the override is
+  audited.
+- **Privacy:**
+  - The readiness board and the room page show occupancy but never guest identity (only `stay.view` sees
+    names).
+  - Audit entries contain room codes and ids, never guest names or contact details.
+  - The public QR portal never sees stays.
 
 ## Security model (Phase 1)
 
