@@ -15,6 +15,9 @@ export const RATE_LIMITS = {
   // but enough to make token guessing pointless on top of the 256-bit token space.
   qrScanByIp: { limit: 120, windowSeconds: 60 },
   qrScanByCode: { limit: 60, windowSeconds: 60 },
+  // Guest service requests: a real room rarely needs more than a few per 10 minutes.
+  guestRequestByIp: { limit: 30, windowSeconds: 10 * 60 },
+  guestRequestByCode: { limit: 10, windowSeconds: 10 * 60 },
 } satisfies Record<string, RateLimitRule>;
 
 /**

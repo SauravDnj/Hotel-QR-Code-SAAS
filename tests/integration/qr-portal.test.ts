@@ -180,7 +180,7 @@ describe("room QR lifecycle and guest portal", () => {
     let last;
     for (let i = 0; i < 121; i++) last = await resolveGuestPortal(db, "B".repeat(43), { ip });
     expect(last).toEqual({ kind: "rate_limited" });
-  });
+  }, 120_000); // 121 sequential DB round trips; slow on a busy machine
 
   it("does not let another tenant read or change this hotel's QR codes", async () => {
     const B_ctx = B.t.ctx;

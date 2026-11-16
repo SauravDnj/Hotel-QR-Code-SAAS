@@ -3,7 +3,9 @@ import { logoutAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { requireTenantContext, requireUser } from "@/lib/auth/session";
-import { can } from "@/lib/permissions/authorize";
+import { getDb } from "@/lib/db/client";
+import { can, propertyScope } from "@/lib/permissions/authorize";
+import { inboxMarker } from "@/modules/requests/staff";
 import type { PermissionKey } from "@/lib/permissions/catalog";
 
 const NAV: { href: string; label: string; permission?: PermissionKey }[] = [
@@ -19,6 +21,9 @@ export default async function HotelAdminLayout({ children }: { children: React.R
   const ctx = await requireTenantContext();
   // Navigation hiding is cosmetic; every page and action re-checks on the server.
   const items = NAV.filter((n) => !n.permission || can(ctx, n.permission));
+  const requestScope = propertyScope(ctx, "request.view");
+  const showInbox = requestScope === "all" || requestScope.length > 0;
+  const newRequests = showInbox ? (await inboxMarker(getDb(), ctx)).newCount : 0;
   const inactive = ctx.tenantStatus === "suspended" || ctx.tenantStatus === "cancelled";
 
   return (
@@ -31,6 +36,19 @@ export default async function HotelAdminLayout({ children }: { children: React.R
           </p>
         </div>
         <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col">
+          {showInbox && (
+            <Link
+              href="/inbox"
+              className="flex items-center justify-between gap-2 whitespace-nowrap rounded-ui px-3 py-2 text-sm font-medium hover:bg-surface-muted"
+            >
+              Requests
+              {newRequests > 0 && (
+                <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground" aria-label={`${newRequests} new`}>
+                  {newRequests}
+                </span>
+              )}
+            </Link>
+          )}
           {items.map((n) => (
             <Link
               key={n.href}

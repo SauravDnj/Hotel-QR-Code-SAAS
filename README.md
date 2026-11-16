@@ -3,27 +3,30 @@
 Multi-tenant hotel guest-services and operations SaaS. Product and engineering docs are in
 [`hotel-saas-documentation/`](hotel-saas-documentation/README.md), which is the source of truth.
 
-**Current status:** Phases 0–3 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal) of
+**Current status:** Phases 0–4 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox) of
 [`ROADMAP_AND_PHASES.md`](hotel-saas-documentation/07-delivery/ROADMAP_AND_PHASES.md).
 
 ## Stack
 
 Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Drizzle ORM · Neon PostgreSQL ·
-Auth.js v5 (credentials, Argon2id) · Zod · Vitest + PGlite · Playwright. Ably (realtime) arrives in Phase 4.
+Auth.js v5 (credentials, Argon2id) · Zod · Vitest + PGlite · Playwright · Ably realtime (REST + SSE, optional).
 
 ## Layout
 
 ```text
 app/                 Routes: (auth) login/signup, (hotel-admin) dashboard/properties/settings/audit,
                      (saas-admin) platform console, r/[token] public guest portal, print/ QR sheets,
-                     api/auth, api/health, api/properties/…/qr downloads
+                     s/[token] guest request receipts, inbox (staff requests),
+                     api/auth, api/health, api/inbox/marker, api/realtime/token, api/cron/outbox,
+                     api/properties/…/qr downloads
 auth.ts              Auth.js configuration
 components/          UI primitives (components/ui) and shared form pieces
 lib/                 auth, crypto (QR tokens, AES-GCM secrets), db (schema + client), permissions,
                      qr (image rendering), rate-limit, validation, observability, env
 modules/             Domain services: tenants, properties, platform, audit, rbac,
                      rooms (floors, room types, rooms, status history), departments,
-                     qr (room QR lifecycle), guest-portal (settings + public resolution)
+                     qr (room QR lifecycle), guest-portal (settings + public resolution),
+                     services (catalogue), requests (guest submit, staff inbox, state machine), realtime (outbox)
 drizzle/             Generated SQL migrations (committed, reviewed)
 scripts/             seed (RBAC sync), create-platform-admin
 tests/               unit, integration (in-process Postgres via PGlite), e2e (Playwright)
@@ -61,7 +64,8 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
 - Environment variables are managed in Vercel → Project → Settings → Environment Variables:
   `DATABASE_URL` (Neon integration, pooled), `DIRECT_URL`, `AUTH_SECRET` (separate per environment),
   `APP_URL` (production only; previews fall back to `VERCEL_URL`), `QR_TOKEN_PEPPER` and `ENCRYPTION_KEY`
-  (identical in every environment that shares the database), optional `GUEST_PORTAL_URL`.
+  (identical in every environment that shares the database), optional `GUEST_PORTAL_URL`,
+  `ABLY_API_KEY` (realtime; polling without it) and `CRON_SECRET`.
 - **Migrations are not run by the build.** Before pushing a schema change, run
   `pnpm db:migrate && pnpm db:seed` against the target database.
 - Health check: `GET /api/health` returns `{"status":"ok"}` when the database is reachable.
@@ -93,8 +97,40 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
   contact, stay times, info sections) and the room label. It never shows guest names, stays, invoices or
   request history. Stay-specific features will need a separate verification step.
 - Wi-Fi password: AES-GCM encrypted at rest, write-only in the admin UI, shown only on that property's
-  guest page. `/r/*` responses are `no-store`, `noindex` and `no-referrer`.
+  guest page. `/r/*` and `/s/*` responses are `no-store`, `noindex` and `Referrer-Policy: same-origin` (the
+  token never leaves the site; same-origin is required so pre-hydration form posts keep a real `Origin`
+  for Next's server-action CSRF check).
 - Downloads: PNG/SVG per room, plus a printable sheet per floor (browser print, or "Save as PDF").
+
+## Service requests and staff inbox (Phase 4)
+
+- **Catalogue** (`/properties/[id]/services`, `service.manage`): standard set = drinking water (quantity),
+  housekeeping (choices), reception, maintenance (choices, high priority) and a custom request (off by
+  default, note required). Each service routes to a department and has optional hours (property timezone,
+  overnight windows OK), target response time and a guest confirmation message.
+- **Guest flow:** tile → `/r/<qr>/request/<service>` → server re-resolves the QR, validates service, hours
+  and fields, then writes the request (with service/department/room **snapshots**), its first history row and
+  an outbox event in **one transaction**. A hidden per-render `idempotencyKey` makes double taps and retries
+  return the same receipt. Rate limits per IP and per room code.
+- **Receipt:** `/s/<status token>` (random, HMAC-hashed at rest, expires after 72 h) shows guest-safe status
+  wording only (`Request sent → Hotel team notified → Being handled → Completed`) plus the staff's guest
+  message. Internal notes, staff names and other requests are never shown. Requests made on a device are
+  remembered in that browser only, so the next guest in the room cannot see them.
+- **Staff inbox** (`/inbox`): requests visible = `request.view` in the property **and** a role that covers the
+  department (housekeeping → Housekeeping, room service → Room Service, maintenance, security; owners,
+  managers and reception see all). Accept/Start/Complete/Cancel/Reopen follow
+  `REQUEST_STATE_MACHINE.md`, run in a row-locked transaction, and record history; cancel/reopen need a
+  reason and are audited. Assignment only to staff whose role covers the department. Overdue badges use the
+  service's target time. Sidebar badge = new requests.
+- **Realtime:** the outbox is published to Ably channels `hotel:<tenant>:<property>:<department>` after each
+  change (and retried with exponential backoff, dead after 8 attempts). Browsers get a 1-hour,
+  **subscribe-only** token for exactly their channels from `/api/realtime/token` and listen over SSE. The
+  database stays the source of truth: the inbox polls `/api/inbox/marker` (every 10 s without realtime,
+  60 s with it, and on focus/reconnect), so requests made during a provider outage or while a device was
+  offline appear on reconnect. Without `ABLY_API_KEY` everything works on polling alone.
+- Optional `/api/cron/outbox` (Bearer `CRON_SECRET`) sweeps retries; inbox polls also drain the outbox.
+- Departments currently come from the staff member's role. Phase 5 adds explicit staff↔department
+  assignment and staff invitations.
 
 ## Security model (Phase 1)
 

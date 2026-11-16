@@ -42,8 +42,24 @@ export const departmentStatus = pgEnum("department_status", ["active", "inactive
 // time-limited codes; revoked rows are kept for audit and never reactivated after rotation.
 export const qrStatus = pgEnum("qr_status", ["active", "revoked", "expired"]);
 
+// REQUEST_STATE_MACHINE.md
+export const requestStatus = pgEnum("request_status", [
+  "new",
+  "acknowledged",
+  "in_progress",
+  "completed",
+  "cancelled",
+  "reopened",
+]);
+
+export const requestPriority = pgEnum("request_priority", ["low", "normal", "high", "urgent"]);
+
+export const serviceNoteMode = pgEnum("service_note_mode", ["none", "optional", "required"]);
+
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];
 export type RoomOperationalStatus = (typeof roomOperationalStatus.enumValues)[number];
 export type HousekeepingStatus = (typeof housekeepingStatus.enumValues)[number];
 export type PropertyStatus = (typeof propertyStatus.enumValues)[number];
 export type QrStatus = (typeof qrStatus.enumValues)[number];
+export type RequestStatus = (typeof requestStatus.enumValues)[number];
+export type RequestPriority = (typeof requestPriority.enumValues)[number];

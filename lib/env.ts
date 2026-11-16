@@ -19,6 +19,10 @@ const schema = z.object({
     .string()
     .refine((k) => Buffer.from(k, "base64").length === 32, "ENCRYPTION_KEY must be 32 bytes, base64-encoded")
     .optional(),
+  /** Ably API key "keyName:secret" (Phase 4). Without it the staff inbox polls instead. */
+  ABLY_API_KEY: z.string().regex(/^[^:\s]+\.[^:\s]+:[^\s]+$/, "ABLY_API_KEY must look like appId.keyId:secret").optional(),
+  /** Bearer secret for /api/cron/* (Vercel Cron sends it automatically when set). */
+  CRON_SECRET: z.string().min(16).optional(),
 });
 
 export type ServerEnv = z.infer<typeof schema>;

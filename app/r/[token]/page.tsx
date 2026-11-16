@@ -3,7 +3,10 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { Clock, Mail, Phone, Wifi } from "lucide-react";
+import Link from "next/link";
 import { CopyButton } from "@/components/copy-button";
+import { ServiceIcon } from "@/components/service-icon";
+import { MyRequests } from "../my-requests";
 import { clientIp } from "@/lib/auth/ip";
 import { getDb } from "@/lib/db/client";
 import { resolveGuestPortal } from "@/modules/guest-portal/public";
@@ -25,12 +28,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: result.kind === "ok" ? { absolute: result.portal.hotelName } : { absolute: "Room services" },
     robots: { index: false, follow: false },
-    referrer: "no-referrer",
+    referrer: "same-origin",
   };
 }
 
 export default async function GuestPortalPage({ params }: Props) {
-  const result = await load((await params).token);
+  const { token } = await params;
+  const result = await load(token);
   if (result.kind === "unavailable") notFound();
   if (result.kind === "rate_limited") {
     return (
@@ -76,6 +80,43 @@ export default async function GuestPortalPage({ params }: Props) {
       </header>
 
       {p.welcomeMessage && <p className="whitespace-pre-line px-1 text-center text-base">{p.welcomeMessage}</p>}
+
+      {result.services.length > 0 && (
+        <section aria-labelledby="services-h">
+          <h2 id="services-h" className="mb-3 px-1 text-base font-semibold">
+            How can we help?
+          </h2>
+          <ul className="grid grid-cols-2 gap-3">
+            {result.services.map((s) => (
+              <li key={s.id}>
+                {s.availableNow ? (
+                  <Link
+                    href={`/r/${token}/request/${s.id}`}
+                    className="flex min-h-28 flex-col items-start justify-between gap-2 rounded-2xl bg-surface p-4 shadow-sm active:scale-[0.98]"
+                  >
+                    <span className="rounded-full p-2" style={{ background: `${accent}1a`, color: accent }}>
+                      <ServiceIcon name={s.icon} className="size-6" />
+                    </span>
+                    <span className="text-base font-semibold leading-tight">{s.name}</span>
+                  </Link>
+                ) : (
+                  <div
+                    className="flex min-h-28 flex-col items-start justify-between gap-2 rounded-2xl bg-surface p-4 opacity-60 shadow-sm"
+                    aria-disabled="true"
+                  >
+                    <ServiceIcon name={s.icon} className="size-6" />
+                    <span className="text-base font-semibold leading-tight">{s.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      Available {s.availableFrom}–{s.availableTo}
+                    </span>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+          <MyRequests />
+        </section>
+      )}
 
       {p.wifi && (
         <section aria-labelledby="wifi-h" className="rounded-2xl bg-surface p-5 shadow-sm">

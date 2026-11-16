@@ -11,7 +11,8 @@ const csp = [
   // https: lets hotels use their own hosted logo/cover images on the guest portal.
   "img-src 'self' data: blob: https:",
   "font-src 'self'",
-  "connect-src 'self'",
+  // Ably realtime (staff inbox) over Server-Sent Events, including its fallback hosts.
+  "connect-src 'self' https://realtime.ably.io https://*.ably.io https://*.ably-realtime.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -31,17 +32,17 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["@node-rs/argon2"],
   async headers() {
+    // Public QR portal and request receipts: the URL holds a bearer token, so never cache,
+    // index or leak it via Referer.
+    const bearerPage = [
+      { key: "Cache-Control", value: "private, no-store, max-age=0" },
+      { key: "X-Robots-Tag", value: "noindex, nofollow" },
+      { key: "Referrer-Policy", value: "same-origin" },
+    ];
     return [
       { source: "/:path*", headers: securityHeaders },
-      // Public QR portal: the URL holds a bearer token, so never cache, index or leak it via Referer.
-      {
-        source: "/r/:token*",
-        headers: [
-          { key: "Cache-Control", value: "private, no-store, max-age=0" },
-          { key: "X-Robots-Tag", value: "noindex, nofollow" },
-          { key: "Referrer-Policy", value: "no-referrer" },
-        ],
-      },
+      { source: "/r/:token*", headers: bearerPage },
+      { source: "/s/:token*", headers: bearerPage },
     ];
   },
   turbopack: {

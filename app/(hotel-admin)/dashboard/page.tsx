@@ -60,7 +60,13 @@ export default async function DashboardPage() {
                 <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/qr-codes`}>print QR codes</Link>.
               </li>
             ))}
-            <li className="text-muted-foreground">Guest service requests (water, housekeeping, maintenance) arrive in the next release.</li>
+            {props.map((p) => (
+              <li key={`svc-${p.id}`}>
+                <span className="font-medium">{p.name}:</span> set up{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href={`/properties/${p.id}/services`}>guest services</Link>, then watch the{" "}
+                <Link className="text-primary underline-offset-4 hover:underline" href="/inbox">request inbox</Link>.
+              </li>
+            ))}
           </ol>
         </Card>
       )}
