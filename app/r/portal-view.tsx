@@ -365,15 +365,24 @@ function Gallery({ items, card, preview }: { items: GuestPortal["gallery"]; card
       <h2 id="gallery-h" className="mb-3 px-1 text-base font-semibold">
         Explore the hotel
       </h2>
-      <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2" aria-label="Hotel photos">
-        {items.map((g, i) => (
-          <li key={g.url + i} className={cn(card, "w-64 shrink-0 snap-start overflow-hidden")}>
-            <a href={preview ? undefined : g.url} target="_blank" rel="noreferrer" aria-label={g.caption ? `Open photo: ${g.caption}` : "Open photo"}>
-              <Img src={g.url} className="aspect-[4/3] w-full object-cover" />
-            </a>
-            {g.caption && <p className="px-3 py-2 text-sm">{g.caption}</p>}
-          </li>
-        ))}
+      <ul className="-mx-4 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto px-4 pb-2" aria-label="Hotel photos">
+        {items.map((g, i) => {
+          // "Title · Photo: credit" → the credit is shown smaller under the title.
+          const [title, ...credit] = (g.caption ?? "").split(" · ");
+          return (
+            <li key={g.url + i} className={cn(card, "relative w-64 shrink-0 snap-start overflow-hidden")}>
+              <a href={preview ? undefined : g.url} target="_blank" rel="noreferrer" aria-label={g.caption ? `Open photo: ${g.caption}` : "Open photo"}>
+                <Img src={g.url} className="aspect-[4/3] w-full object-cover" />
+              </a>
+              {g.caption && (
+                <p className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-3 pb-2 pt-10 text-white">
+                  <span className="block text-sm font-medium">{title}</span>
+                  {credit.length > 0 && <span className="block text-[10px] leading-tight opacity-80">{credit.join(" · ")}</span>}
+                </p>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
