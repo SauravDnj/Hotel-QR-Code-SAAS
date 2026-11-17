@@ -208,6 +208,9 @@ For a menu service click **Menu** to add sections and items with prices.
 ![Design & photos tab with the phone preview](../public/guide/design.jpg)
 *Design & photos tab with the phone preview*
 
+![Result: service tiles with photos on the guest page](../public/guide/guest-services.jpg)
+*Result: service tiles with photos on the guest page*
+
 <a id="staff"></a>
 
 ### Staff and roles
@@ -391,6 +394,9 @@ Staff pages refresh themselves every 30 to 60 seconds, so everybody sees the sam
 
 ![Guest page after scanning](../public/guide/guest-home.jpg)
 *Guest page after scanning*
+
+![Service tiles with photos](../public/guide/guest-services.jpg)
+*Service tiles with photos*
 
 ![Request form](../public/guide/guest-request.jpg)
 *Request form*

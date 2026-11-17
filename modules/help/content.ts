@@ -790,6 +790,7 @@ const HOTEL_MEDIA: Record<string, GuideMedia[]> = {
     vid("video-design", "Video: trying templates and colour palettes with the live preview"),
     img("guest-portal", "Guest portal tab: Wi-Fi, contacts and times"),
     img("design", "Design & photos tab with the phone preview"),
+    img("guest-services", "Result: service tiles with photos on the guest page", true),
   ],
   staff: [img("staff", "Staff page: invite form and team list")],
   reservations: [img("reservations", "Reservations: new booking and availability")],
@@ -799,6 +800,7 @@ const HOTEL_MEDIA: Record<string, GuideMedia[]> = {
   "guest-view": [
     vid("video-guest-request", "Video: a guest scans and sends a request", true),
     img("guest-home", "Guest page after scanning", true),
+    img("guest-services", "Service tiles with photos", true),
     img("guest-request", "Request form", true),
   ],
   reports: [img("reports", "Reports page")],

@@ -113,8 +113,22 @@ await setup.close();
 if (want("guest-shots")) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   const g = await ctx.newPage();
+  const imagesOnScreen = () =>
+    g
+      .waitForFunction(
+        () => [...document.images].filter((i) => { const r = i.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; }).every((i) => i.complete && i.naturalWidth > 0),
+        null,
+        { timeout: 30000 },
+      )
+      .catch(() => {});
   await g.goto(`${BASE}${guestPath}`);
+  await imagesOnScreen();
   await shot(g, "guest-home", { quality: 70 });
+  // The service tiles (with their photos), further down the same page.
+  await g.getByRole("heading", { name: "How can we help?" }).evaluate((h) => window.scrollTo(0, h.getBoundingClientRect().top + window.scrollY - 16));
+  await imagesOnScreen();
+  await shot(g, "guest-services", { quality: 70 });
+  await g.evaluate(() => window.scrollTo(0, 0));
   await g.getByRole("link", { name: /drinking water/i }).first().click();
   await g.waitForURL(/request/);
   await shot(g, "guest-request", { quality: 70 });
