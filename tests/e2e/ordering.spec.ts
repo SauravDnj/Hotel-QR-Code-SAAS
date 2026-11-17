@@ -14,7 +14,7 @@ test("in-room dining: guest orders to the room bill → staff deliver → charge
   await expect(page.getByText(/5 services added/)).toBeVisible({ timeout: 30_000 });
   await page.getByText("In-room dining", { exact: true }).click();
   const edit = page.getByRole("form", { name: "Edit In-room dining" });
-  await edit.getByLabel("Shown to guests").check();
+  await edit.getByRole("checkbox", { name: "Shown to guests" }).check();
   await edit.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Saved.")).toBeVisible({ timeout: 30_000 });
 
