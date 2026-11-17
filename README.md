@@ -3,6 +3,10 @@
 Multi-tenant hotel guest-services and operations SaaS. Product and engineering docs are in
 [`hotel-saas-documentation/`](hotel-saas-documentation/README.md), which is the source of truth.
 
+**User guides:** [Hotel guide](docs/HOTEL_GUIDE.md) (owners, managers and staff) and
+[Super admin guide](docs/SUPER_ADMIN_GUIDE.md). The same guides are in the app under Help & guide
+and Docs & guide.
+
 **Current status:** Phases 0–9 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA, check-in/out & housekeeping, reports & billing, hardening & pilot readiness, expansion) of
 [`ROADMAP_AND_PHASES.md`](hotel-saas-documentation/07-delivery/ROADMAP_AND_PHASES.md).
 
@@ -60,6 +64,8 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
 | `pnpm db:seed` | Sync RBAC catalogue and insert missing plans |
 | `pnpm backup` / `pnpm restore:check <dir>` | Logical backup / restore rehearsal into a throwaway DB |
 | `pnpm load:smoke <url> [conc] [secs] [paths…]` | Small load smoke test (use staging for real load) |
+| `pnpm guide:md` | Regenerate `docs/HOTEL_GUIDE.md` and `docs/SUPER_ADMIN_GUIDE.md` from the in-app guide |
+| `node scripts/capture-guide-media.mjs` | Retake guide screenshots and videos (instructions at the top of the file) |
 
 ## Deployment (Vercel + Neon)
 
