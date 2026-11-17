@@ -1,7 +1,7 @@
 /**
  * Minimal structured JSON logger. Secret-looking keys are always redacted so
- * passwords, tokens and keys never reach log storage. Swap the sink for Sentry/
- * a log drain in the deployment phase.
+ * passwords, tokens and keys never reach log storage. Error lines are also sent to Sentry
+ * when SENTRY_DSN is set (see lib/observability/sentry.ts).
  */
 const SECRET_KEYS = /pass(word)?|secret|token|authorization|cookie|api[-_]?key|hash|card|cvv|otp/i;
 
@@ -20,7 +20,15 @@ type Level = "debug" | "info" | "warn" | "error";
 
 function emit(level: Level, msg: string, fields?: Record<string, unknown>) {
   const line = JSON.stringify({ level, msg, time: new Date().toISOString(), ...(redact(fields ?? {}) as object) });
-  if (level === "error") console.error(line);
+  if (level === "error") {
+    console.error(line);
+    // Handled errors that are logged (not thrown) also become Sentry alerts on the server.
+    if (typeof window === "undefined" && process.env.SENTRY_DSN) {
+      import("@sentry/nextjs")
+        .then((Sentry) => Sentry.captureMessage(msg, { level: "error", extra: redact(fields ?? {}) as Record<string, unknown> }))
+        .catch(() => {});
+    }
+  }
   else if (level === "warn") console.warn(line);
   else console.log(line);
 }

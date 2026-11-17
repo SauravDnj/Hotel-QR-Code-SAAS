@@ -19,6 +19,7 @@ import { assertModule } from "@/modules/billing/subscription";
 import { readinessBoard } from "@/modules/housekeeping/service";
 import { requireProperty } from "@/modules/properties/access";
 import { listProperties } from "@/modules/properties/service";
+import { feedbackSummary } from "@/modules/requests/feedback";
 import { ACTIVE_STATUSES } from "@/modules/requests/state";
 import { requestScopeCondition } from "@/modules/requests/staff";
 
@@ -215,8 +216,10 @@ export async function propertyReport(db: Db, ctx: TenantContext, propertyId: str
 
   const inspections = (hk?.inspPassed ?? 0) + (hk?.inspFailed ?? 0);
   const commercial = await commercialMetrics(db, ctx.tenantId, property.id, range);
+  const feedback = await feedbackSummary(db, ctx, property.id, range);
   return {
     commercial,
+    feedback,
     property,
     range: { from: range.from, to: range.to, days: range.dates.length },
     occupancy: {

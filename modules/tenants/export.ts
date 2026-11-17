@@ -12,6 +12,7 @@ import {
   invoices,
   menuItems,
   properties,
+  requestFeedback,
   requestItems,
   reservations,
   roomCategories,
@@ -127,12 +128,13 @@ export async function exportTenantData(db: Db, ctx: TenantContext) {
       .limit(5000),
   ]);
   // Phase 9 data.
-  const [reservationRows, menuRows, orderLineRows, chargeRows, paymentRows] = await Promise.all([
+  const [reservationRows, menuRows, orderLineRows, chargeRows, paymentRows, feedbackRows] = await Promise.all([
     db.select().from(reservations).where(eq(reservations.tenantId, t)),
     db.select().from(menuItems).where(eq(menuItems.tenantId, t)),
     db.select().from(requestItems).where(eq(requestItems.tenantId, t)),
     db.select().from(folioCharges).where(eq(folioCharges.tenantId, t)),
     db.select().from(folioPayments).where(eq(folioPayments.tenantId, t)),
+    db.select().from(requestFeedback).where(eq(requestFeedback.tenantId, t)),
   ]);
   await writeAudit(db, {
     tenantId: t,
@@ -159,6 +161,7 @@ export async function exportTenantData(db: Db, ctx: TenantContext) {
     guests: guestRows,
     stays: stayRows,
     requests: requestRows,
+    requestFeedback: feedbackRows,
     housekeepingTasks: taskRows,
     reservations: reservationRows,
     menuItems: menuRows,

@@ -342,6 +342,20 @@ Super admins (`users.is_platform_admin`, two-step sign-in required) land on `/pl
 - **Users & staff** (`/platform/users`): every login across hotels; block/unblock, reset password/two-step, grant/remove super admin.
 - **Audit log** (`/platform/audit`): all hotels, filterable. Plans and Support pages as before.
 
+## Guest feedback, report downloads and error alerts
+- **Guest feedback** (`request_feedback`, migration 0013): once a request is completed, its status page asks
+  "How did we do?" (1–5 stars + optional comment, once per request, status token is the only identity input,
+  rate-limited). Staff see it on the request page; Reports shows the average, star counts, rating by department
+  and the latest ratings of 3 stars or less. Comments are cleared by the retention job after 180 days (stars kept)
+  and included in the hotel data export.
+- **Download for Excel** (`/api/reports/export?type=requests|occupancy|revenue&property=…&from=…&to=…`): CSV
+  with a UTF-8 BOM, same permission/plan/property/date/department scope as Reports, formula-injection safe,
+  no guest-typed notes, rate-limited and audited (`report.exported`).
+- **Error alerts (Sentry)**: set `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` (same DSN) in Vercel to turn on.
+  Server errors (`instrumentation.ts`), logged errors, browser errors and crash screens are reported, with
+  cookies, headers, bodies, query strings and guest/invite/reset tokens removed (`lib/observability/sentry.ts`).
+  Without the DSN nothing is sent and the SDK isn't loaded.
+
 ## Security model (Phase 1)
 
 - **Tenant isolation:** the tenant always comes from the signed-in user's active membership

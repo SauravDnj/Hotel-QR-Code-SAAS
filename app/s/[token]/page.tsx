@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, Star } from "lucide-react";
 import { clientIp } from "@/lib/auth/ip";
 import { getDb } from "@/lib/db/client";
 import { formatDateTime } from "@/lib/utils";
@@ -10,6 +10,9 @@ import { getGuestRequestStatus } from "@/modules/requests/guest";
 import { RememberRequest } from "../../r/my-requests";
 import { GuestShell } from "../../r/guest-shell";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { FEEDBACK_COMMENT_MAX } from "@/modules/requests/feedback";
+import { rateRequestAction } from "./actions";
+import { RateForm } from "./rate-form";
 
 export const metadata: Metadata = {
   title: { absolute: "Your request" },
@@ -108,6 +111,22 @@ export default async function GuestStatusPage({ params }: { params: Promise<{ to
             </p>
           </div>
         )}
+
+        {r.status === "completed" &&
+          (r.feedback ? (
+            <div className="mt-5 border-t border-border pt-4 text-sm" aria-label="Your rating">
+              <p className="font-semibold">Your rating</p>
+              <p className="mt-1 flex items-center gap-0.5" aria-label={`${r.feedback.rating} out of 5 stars`}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Star key={n} className="size-5" style={{ color: accent, fill: n <= r.feedback!.rating ? accent : "transparent" }} aria-hidden />
+                ))}
+              </p>
+              {r.feedback.comment && <p className="mt-1 whitespace-pre-line text-muted-foreground">{r.feedback.comment}</p>}
+              <p className="mt-1 text-xs text-muted-foreground">Thank you for your feedback.</p>
+            </div>
+          ) : (
+            <RateForm action={rateRequestAction.bind(null, token)} accent={accent} maxComment={FEEDBACK_COMMENT_MAX} />
+          ))}
 
         <dl className="mt-5 space-y-1 border-t border-border pt-4 text-sm">
           {r.scheduledFor && (

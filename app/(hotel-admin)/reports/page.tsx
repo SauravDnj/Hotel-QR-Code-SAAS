@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { PermissionDenied } from "@/components/permission-denied";
 import { buttonVariants } from "@/components/ui/button";
@@ -82,6 +83,25 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </button>
         <span className="text-xs text-muted-foreground">Up to {MAX_RANGE_DAYS} days.</span>
       </form>
+      <div className="flex flex-wrap items-center gap-2" aria-label="Download for Excel">
+        <span className="text-sm text-muted-foreground">Download for Excel (CSV):</span>
+        {(
+          [
+            ["requests", "Requests"],
+            ["occupancy", "Occupancy"],
+            ["revenue", "Revenue"],
+          ] as const
+        ).map(([type, label]) => (
+          <a
+            key={type}
+            href={`/api/reports/export?type=${type}&property=${selected.id}&from=${r.range.from}&to=${r.range.to}`}
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+            download
+          >
+            <Download className="size-4" aria-hidden /> {label}
+          </a>
+        ))}
+      </div>
 
       <section aria-labelledby="occ-h" className="space-y-3">
         <h2 id="occ-h" className="text-lg font-semibold">
@@ -165,6 +185,66 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         )}
       </section>
 
+      <section aria-labelledby="fb-h" className="space-y-3">
+        <h2 id="fb-h" className="text-lg font-semibold">
+          Guest ratings
+        </h2>
+        {r.feedback.count === 0 ? (
+          <p className="text-sm text-muted-foreground">No ratings yet for requests in this period. Guests can rate a request once it&apos;s completed.</p>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Stat label="Average rating" value={`${r.feedback.average ?? "—"} ★`} hint={`${r.feedback.count} rating${r.feedback.count === 1 ? "" : "s"}`} />
+              <Stat
+                label="Rated requests"
+                value={pct(q.completed ? r.feedback.count / q.completed : null)}
+                hint="of completed requests"
+              />
+              <Card className="p-3 sm:col-span-2">
+                <p className="mb-1 text-xs text-muted-foreground">Stars given</p>
+                <ul className="space-y-0.5 text-xs" aria-label="Ratings by stars">
+                  {[5, 4, 3, 2, 1].map((n) => {
+                    const c = r.feedback.distribution[n - 1];
+                    return (
+                      <li key={n} className="flex items-center gap-2">
+                        <span className="w-6 tabular-nums">{n}★</span>
+                        <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-muted">
+                          <span className="block h-full rounded-full bg-warning" style={{ width: `${(c / r.feedback.count) * 100}%` }} />
+                        </span>
+                        <span className="w-6 text-right tabular-nums">{c}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            </div>
+            {r.feedback.byDepartment.length > 1 && (
+              <p className="text-sm text-muted-foreground">
+                By department: {r.feedback.byDepartment.map((d) => `${d.department} ${d.avg}★ (${d.count})`).join(", ")}
+              </p>
+            )}
+            {r.feedback.low.length > 0 && (
+              <Card>
+                <h3 className="mb-2 text-sm font-semibold">Latest ratings of 3 stars or less</h3>
+                <ul className="divide-y divide-border text-sm">
+                  {r.feedback.low.map((f) => (
+                    <li key={f.requestId} className="py-2">
+                      <Link href={`/inbox/${f.requestId}`} className="font-medium underline underline-offset-4">
+                        Room {f.roomCode} · {f.serviceName}
+                      </Link>{" "}
+                      <span className="text-warning" aria-label={`${f.rating} stars`}>
+                        {"★".repeat(f.rating)}
+                      </span>
+                      {f.comment && <p className="mt-0.5 whitespace-pre-line text-muted-foreground">{f.comment}</p>}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </>
+        )}
+      </section>
+
       <section aria-labelledby="hk-h" className="space-y-3">
         <h2 id="hk-h" className="text-lg font-semibold">
           Housekeeping
@@ -242,6 +322,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <li>Missed target = accepted after the service&apos;s target time, or still not accepted past it.</li>
           <li>Requests are counted by the date they were submitted. You only see departments you have access to.</li>
           <li>Cleaning time = finished − started; pass rate = passed inspections ÷ all inspections.</li>
+          <li>Guest ratings: 1–5 stars a guest gives a completed request, counted by the date the request was submitted.</li>
+          <li>CSV downloads use the same property, dates and department access as this page; amounts are in {selected.currency}.</li>
         </ul>
       </details>
     </div>

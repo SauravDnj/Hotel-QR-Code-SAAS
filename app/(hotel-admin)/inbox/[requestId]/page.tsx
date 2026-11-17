@@ -12,6 +12,7 @@ import { departmentScope, inDepartmentScope } from "@/lib/permissions/department
 import { formatDateTime } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 import { getProperty } from "@/modules/properties/service";
+import { feedbackForRequest } from "@/modules/requests/feedback";
 import { allowedActions, getRequestForStaff, listAssignableStaff } from "@/modules/requests/staff";
 import { ACTIONS, REASON_REQUIRED, STAFF_STATUS_LABEL } from "@/modules/requests/state";
 import { assignAction, transitionAction } from "../actions";
@@ -25,6 +26,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const db = getDb();
   const { request: r, history, items } = await loadOr404(() => getRequestForStaff(db, ctx, requestId));
   const property = await getProperty(db, ctx, r.propertyId).catch(() => null);
+  const feedback = await feedbackForRequest(db, ctx.tenantId, r.id);
   const tz = property?.timezone ?? "UTC";
   const actions = allowedActions(ctx, r);
   const canAssign =
@@ -180,6 +182,25 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 Assign
               </Button>
             </ActionForm>
+          )}
+        </Card>
+      )}
+
+      {feedback && (
+        <Card aria-label="Guest rating">
+          <h2 className="mb-2 text-sm font-semibold">Guest rating</h2>
+          <p className="flex items-center gap-2">
+            <span className="text-lg tracking-wide text-warning" aria-hidden>
+              {"★".repeat(feedback.rating)}
+              <span className="text-border">{"★".repeat(5 - feedback.rating)}</span>
+            </span>
+            <span className="text-sm font-medium">{feedback.rating} / 5</span>
+            <span className="text-xs text-muted-foreground">{formatDateTime(feedback.createdAt, tz)}</span>
+          </p>
+          {feedback.comment ? (
+            <p className="mt-2 whitespace-pre-line rounded-ui bg-surface-muted p-3 text-sm">{feedback.comment}</p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">No comment.</p>
           )}
         </Card>
       )}

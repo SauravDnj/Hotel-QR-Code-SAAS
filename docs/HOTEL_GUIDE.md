@@ -327,7 +327,7 @@ Open in the app: [Open Front desk](https://hotel-qr-code-saas.vercel.app/front-d
 | Cancelled | Cancelled – please contact reception |
 | Reopened | Being reviewed |
 
-> **Tip:** Turn on phone notifications in **My profile** to get an alert for every new request you can see, or only those assigned to you.
+> **Tip:** Turn on phone notifications in **My profile** to get an alert for every new request you can see, or only those assigned to you. After a request is completed the guest can rate it; the stars and comment appear on the request page under **Guest rating**.
 
 ▶ **[Video: Accept → Start → Complete a request](../public/guide/video-staff-request.webm)** (video, no sound)
 
@@ -387,6 +387,7 @@ Staff pages refresh themselves every 30 to 60 seconds, so everybody sees the sam
 3. Tap a service, choose options, add a note and tap **Send**.
 4. Watch the status page update: Request sent → Hotel team notified → Being handled → Completed.
 5. Order food or laundry and pay on delivery, or charge it to the room while checked in.
+6. When a request is **Completed**, the same page asks **How did we do?**: tap 1–5 stars and optionally write a comment.
 
 > **Tip:** Tell guests at check-in: "Scan the code by your bed for Wi-Fi, water, towels, food or anything else."
 
@@ -409,11 +410,13 @@ Staff pages refresh themselves every 30 to 60 seconds, so everybody sees the sam
 
 ### Reports and audit log
 
-*Response times, occupancy, revenue and who did what.*
+*Response times, occupancy, revenue, guest ratings, Excel downloads and who did what.*
 
 **Shown to:** Hotel Owner, Hotel Manager
 
-- **Reports**: requests by department, average acknowledgement and completion time, missed targets, occupancy, revenue, requests completed and rooms cleaned per staff member.
+- **Reports**: requests by department, average acknowledgement and completion time, missed targets, occupancy, revenue, guest ratings, requests completed and rooms cleaned per staff member.
+- **Download for Excel**: under the dates on Reports, click **Requests**, **Occupancy** or **Revenue** to download a CSV file for the chosen property and dates. It opens in Excel or Google Sheets.
+- **Guest ratings**: average stars, how many completed requests were rated, stars by department, and the latest ratings of 3 stars or less with the guest's comment (click one to open the request).
 - **Portfolio** (several properties): compare properties side by side.
 - **Audit log**: every important change, who made it and when. Guest personal details are never written there.
 

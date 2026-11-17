@@ -364,7 +364,7 @@ const HOTEL_SECTIONS: GuideSection[] = [
       },
       {
         kind: "tip",
-        text: "Turn on phone notifications in **My profile** to get an alert for every new request you can see, or only those assigned to you.",
+        text: "Turn on phone notifications in **My profile** to get an alert for every new request you can see, or only those assigned to you. After a request is completed the guest can rate it; the stars and comment appear on the request page under **Guest rating**.",
       },
       { kind: "links", items: [{ href: "/inbox", label: "Open Requests" }, { href: "/profile", label: "Notification settings" }] },
     ],
@@ -426,6 +426,7 @@ const HOTEL_SECTIONS: GuideSection[] = [
           "Tap a service, choose options, add a note and tap **Send**.",
           "Watch the status page update: Request sent → Hotel team notified → Being handled → Completed.",
           "Order food or laundry and pay on delivery, or charge it to the room while checked in.",
+          "When a request is **Completed**, the same page asks **How did we do?**: tap 1–5 stars and optionally write a comment.",
         ],
       },
       { kind: "tip", text: "Tell guests at check-in: \"Scan the code by your bed for Wi-Fi, water, towels, food or anything else.\"" },
@@ -436,13 +437,15 @@ const HOTEL_SECTIONS: GuideSection[] = [
     group: "Manage the business",
     title: "Reports and audit log",
     icon: "chart",
-    summary: "Response times, occupancy, revenue and who did what.",
+    summary: "Response times, occupancy, revenue, guest ratings, Excel downloads and who did what.",
     permissions: ["report.view", "audit.view"],
     blocks: [
       {
         kind: "list",
         items: [
-          "**Reports**: requests by department, average acknowledgement and completion time, missed targets, occupancy, revenue, requests completed and rooms cleaned per staff member.",
+          "**Reports**: requests by department, average acknowledgement and completion time, missed targets, occupancy, revenue, guest ratings, requests completed and rooms cleaned per staff member.",
+          "**Download for Excel**: under the dates on Reports, click **Requests**, **Occupancy** or **Revenue** to download a CSV file for the chosen property and dates. It opens in Excel or Google Sheets.",
+          "**Guest ratings**: average stars, how many completed requests were rated, stars by department, and the latest ratings of 3 stars or less with the guest's comment (click one to open the request).",
           "**Portfolio** (several properties): compare properties side by side.",
           "**Audit log**: every important change, who made it and when. Guest personal details are never written there.",
         ],

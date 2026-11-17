@@ -12,6 +12,7 @@ Implements `hotel-saas-documentation/08-deployment/OPERATIONS_RUNBOOK.md` for th
   - past_due/suspended → follow up commercially;
   - failed webhooks above 0 → see *Payments*.
 - **Vercel → Logs:** filter `level":"error"`. Every response carries an `x-vercel-id` header: ask users for it, and use it as the correlation id.
+- **Sentry → Issues** (once `SENTRY_DSN` is set): new or rising errors. Reports never contain guest/invite/reset tokens, cookies or request bodies; use the `x-vercel-id` and time to find the matching log line.
 - **Vercel → Cron Jobs:** `/api/cron/daily` ran (it covers billing lifecycle, escalation, outbox and retention).
 
 ## Deploying
@@ -83,7 +84,7 @@ Implements `hotel-saas-documentation/08-deployment/OPERATIONS_RUNBOOK.md` for th
 - Webhook replays are safe. If state looks wrong, compare the Razorpay dashboard subscription status with `/platform` and extend the trial as a bridge while reconciling.
 
 ## Data retention (automatic, daily)
-- Guest name/phone/email are anonymised 180 days after the last checkout. Guest-typed notes are cleared after 180 days.
+- Guest name/phone/email are anonymised 180 days after the last checkout. Guest-typed notes and feedback comments are cleared after 180 days (star ratings are kept).
 - Rate-limit counters older than 2 days are deleted.
 - Hotels can export their data at any time (Settings → Download export).
 

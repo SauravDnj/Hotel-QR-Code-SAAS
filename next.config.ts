@@ -12,7 +12,8 @@ const csp = [
   "img-src 'self' data: blob: https:",
   "font-src 'self'",
   // Ably realtime (staff inbox) over Server-Sent Events, including its fallback hosts.
-  "connect-src 'self' https://realtime.ably.io https://*.ably.io https://*.ably-realtime.com",
+  // + Sentry error alerts from the browser (only used when NEXT_PUBLIC_SENTRY_DSN is set).
+  "connect-src 'self' https://realtime.ably.io https://*.ably.io https://*.ably-realtime.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

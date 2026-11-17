@@ -19,6 +19,7 @@ import { enqueueNotification } from "@/modules/notifications/service";
 import { enqueueWebhookEvent } from "@/modules/integrations/webhooks";
 import { isUniqueViolation } from "@/modules/rooms/db-errors";
 import { isAvailableAt, listGuestServices } from "@/modules/services/catalog";
+import { feedbackForRequest } from "./feedback";
 import { GUEST_STATUS } from "./state";
 import { listGuestMenu, priceOrder } from "@/modules/ordering/menu";
 import { addDays, localDate, zonedToUtc } from "@/lib/timezones";
@@ -344,6 +345,8 @@ export interface GuestRequestView {
   timeline: { label: string; at: Date }[];
   scheduledFor: Date | null;
   order: { lines: { name: string; quantity: number; lineTotalMinor: number }[]; totalMinor: number; currency: string; paymentMethod: string } | null;
+  /** The guest's rating once given (completed requests only). */
+  feedback: { rating: number; comment: string | null } | null;
 }
 
 export type StatusResult = { kind: "ok"; request: GuestRequestView } | { kind: "unavailable" } | { kind: "rate_limited" };
@@ -392,6 +395,7 @@ export async function getGuestRequestStatus(db: Db, token: unknown, opts: { ip: 
           .where(and(eq(requestItems.tenantId, r.tenantId), eq(requestItems.requestId, r.id)))
           .orderBy(asc(requestItems.name))
       : [];
+  const feedback = r.status === "completed" ? await feedbackForRequest(db, r.tenantId, r.id) : null;
   return {
     kind: "ok",
     request: {
@@ -416,6 +420,7 @@ export async function getGuestRequestStatus(db: Db, token: unknown, opts: { ip: 
         r.kind === "menu" && r.totalMinor !== null && r.currency
           ? { lines, totalMinor: r.totalMinor, currency: r.currency, paymentMethod: r.paymentMethod ?? "on_delivery" }
           : null,
+      feedback: feedback && { rating: feedback.rating, comment: feedback.comment },
     },
   };
 }

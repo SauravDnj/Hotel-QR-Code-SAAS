@@ -1,6 +1,7 @@
 import { isNull, sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   char,
   foreignKey,
   index,
@@ -206,6 +207,37 @@ export const requestAssignments = pgTable(
     endedAt: timestamp("ended_at", { withTimezone: true }),
   },
   (t) => [index("request_assignments_request_idx").on(t.tenantId, t.requestId)],
+);
+
+/**
+ * Guest rating of a completed request (1–5 stars + optional comment), given once from the
+ * request's status page. The comment is guest-typed and cleared by the retention job.
+ */
+export const requestFeedback = pgTable(
+  "request_feedback",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "restrict" }),
+    propertyId: uuid("property_id").notNull(),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: "restrict" }),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "request_feedback_property_fk",
+      columns: [t.propertyId, t.tenantId],
+      foreignColumns: [properties.id, properties.tenantId],
+    }).onDelete("restrict"),
+    uniqueIndex("request_feedback_request_unique").on(t.requestId),
+    index("request_feedback_scope_idx").on(t.tenantId, t.propertyId, t.createdAt),
+    check("request_feedback_rating_range", sql`${t.rating} between 1 and 5`),
+  ],
 );
 
 /**

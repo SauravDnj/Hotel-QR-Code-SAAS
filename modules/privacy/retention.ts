@@ -1,6 +1,6 @@
 import { and, inArray, isNotNull, lt, ne, sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/types";
-import { guests, outboxEvents, rateLimits, reservations, serviceRequests, stays } from "@/lib/db/schema";
+import { guests, outboxEvents, rateLimits, requestFeedback, reservations, serviceRequests, stays } from "@/lib/db/schema";
 
 /**
  * Data retention (SECURITY_PRIVACY.md "Minimize guest PII; define retention and deletion").
@@ -8,7 +8,8 @@ import { guests, outboxEvents, rateLimits, reservations, serviceRequests, stays 
  * - Guest name/phone/email are anonymised GUEST_RETENTION_DAYS after their last checkout or
  *   booking departure date
  *   (stay records and occupancy statistics are kept).
- * - Guest-typed request notes are cleared after the same period (they may contain PII).
+ * - Guest-typed request notes and feedback comments are cleared after the same period (they
+ *   may contain PII); star ratings are kept.
  * - Rate-limit counters older than 2 days are deleted.
  * Runs from the daily cron; idempotent.
  */
@@ -36,6 +37,11 @@ export async function applyRetention(db: Db, now: Date = new Date()) {
     .set({ guestNote: null })
     .where(and(isNotNull(serviceRequests.guestNote), lt(serviceRequests.submittedAt, cutoff)))
     .returning({ id: serviceRequests.id });
+  const comments = await db
+    .update(requestFeedback)
+    .set({ comment: null })
+    .where(and(isNotNull(requestFeedback.comment), lt(requestFeedback.createdAt, cutoff)))
+    .returning({ id: requestFeedback.id });
   const limits = await db
     .delete(rateLimits)
     .where(lt(rateLimits.windowStart, new Date(now.getTime() - 2 * 86400_000)))
@@ -48,6 +54,7 @@ export async function applyRetention(db: Db, now: Date = new Date()) {
   return {
     guestsAnonymised: anonymised.length,
     notesCleared: notes.length,
+    feedbackCommentsCleared: comments.length,
     rateLimitRowsDeleted: limits.length,
     outboxRowsDeleted: outbox.length,
   };
