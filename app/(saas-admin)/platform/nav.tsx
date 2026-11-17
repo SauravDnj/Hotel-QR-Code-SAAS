@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/platform/plans", label: "Plans" },
   { href: "/platform/audit", label: "Audit log" },
   { href: "/platform/support", label: "Support" },
+  { href: "/platform/docs", label: "Docs & guide" },
 ];
 
 export function PlatformNav() {

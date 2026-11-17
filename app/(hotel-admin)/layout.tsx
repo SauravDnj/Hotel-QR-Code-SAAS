@@ -23,6 +23,7 @@ const NAV: { href: string; label: string; permission?: PermissionKey; anyPropert
   { href: "/billing", label: "Billing", permission: "billing.view" },
   { href: "/settings", label: "Hotel settings", permission: "tenant.manage" },
   { href: "/audit", label: "Audit log", permission: "audit.view" },
+  { href: "/help", label: "Help & guide" },
 ];
 
 export default async function HotelAdminLayout({ children }: { children: React.ReactNode }) {
@@ -46,8 +47,8 @@ export default async function HotelAdminLayout({ children }: { children: React.R
   const inactive = ctx.tenantStatus === "suspended" || ctx.tenantStatus === "cancelled";
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[240px_1fr]">
-      <aside className="border-b border-border bg-surface md:min-h-screen md:border-b-0 md:border-r">
+    <div className="min-h-screen md:grid md:grid-cols-[240px_1fr] print:block">
+      <aside className="border-b border-border bg-surface md:min-h-screen md:border-b-0 md:border-r print:hidden">
         <div className="px-5 py-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Hotel</p>
           <p className="truncate font-semibold" title={ctx.tenantName}>
@@ -90,7 +91,7 @@ export default async function HotelAdminLayout({ children }: { children: React.R
         </nav>
       </aside>
       <div className="flex min-w-0 flex-col">
-        <header className="flex items-center justify-end gap-3 border-b border-border bg-surface px-5 py-3">
+        <header className="flex items-center justify-end gap-3 border-b border-border bg-surface px-5 py-3 print:hidden">
           {ctx.operatorMode ? (
             <span className="truncate text-sm text-muted-foreground">{user.email}</span>
           ) : (

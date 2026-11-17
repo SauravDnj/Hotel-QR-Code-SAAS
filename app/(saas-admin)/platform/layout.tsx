@@ -12,7 +12,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   const ownHotels = await listUserTenants(getDb(), actor.id);
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border bg-surface">
+      <header className="border-b border-border bg-surface print:hidden">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-3">
           <div className="flex items-center gap-3">
             <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">Super admin</span>
