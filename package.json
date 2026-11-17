@@ -18,7 +18,8 @@
     "platform:admin": "tsx scripts/create-platform-admin.mts",
     "backup": "tsx scripts/backup.mts",
     "restore:check": "tsx scripts/restore-check.mts",
-    "load:smoke": "node scripts/load-smoke.mjs"
+    "load:smoke": "node scripts/load-smoke.mjs",
+    "demo:seed": "tsx scripts/seed-demo.mts"
   },
   "engines": {
     "node": ">=22"
