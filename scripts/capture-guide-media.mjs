@@ -138,11 +138,11 @@ if (want("design")) {
   await video("video-design", { width: 1280, height: 720 }, async (v) => {
     await v.goto(`${BASE}${P}/design`);
     await pause(v, 1500);
-    for (const t of ["Photo", "Elegant", "Minimal", "Classic"]) {
+    for (const t of ["Classic", "Elegant", "Minimal", "Photo"]) {
       await v.getByRole("radiogroup", { name: "Template" }).getByRole("radio", { name: new RegExp(`^${t}`) }).click();
       await pause(v, 1300);
     }
-    for (const p of ["Emerald", "Royal maroon", "Night & gold", "Ocean"]) {
+    for (const p of ["Emerald", "Royal maroon", "Ocean", "Night & gold"]) {
       await v.getByRole("button", { name: p }).click();
       await pause(v, 1300);
     }
@@ -153,12 +153,31 @@ if (want("design")) {
   });
 }
 
+/** Waits until every photo on screen has finished loading (hotel photos come from the database). */
+const photosLoaded = (p) =>
+  p
+    .waitForFunction(() => [...document.images].filter((i) => i.getBoundingClientRect().top < innerHeight).every((i) => i.complete && i.naturalWidth > 0), null, {
+      timeout: 30000,
+    })
+    .catch(() => {});
+
 if (want("guest")) {
+  // Warm-up visit (not recorded) so the photos are already cached when the recording starts.
+  {
+    const warm = await browser.newContext({ viewport: { width: 390, height: 780 } });
+    const w = await warm.newPage();
+    await w.goto(`${BASE}${guestPath}`);
+    await w.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await w.waitForLoadState("networkidle").catch(() => {});
+    await warm.close();
+  }
   await video(
     "video-guest-request",
     { width: 390, height: 780 },
     async (v) => {
       await v.goto(`${BASE}${guestPath}`);
+      await v.waitForLoadState("networkidle").catch(() => {});
+      await photosLoaded(v);
       await pause(v, 2000);
       await v.mouse.wheel(0, 400);
       await pause(v, 1500);
