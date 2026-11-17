@@ -8,7 +8,7 @@ import {
   tenants,
   userRoleAssignments,
 } from "@/lib/db/schema";
-import type { PermissionKey } from "@/lib/permissions/catalog";
+import { PERMISSIONS, type PermissionKey } from "@/lib/permissions/catalog";
 import type { RoleGrant, TenantContext } from "@/lib/permissions/authorize";
 
 /** Active tenant memberships for a user (for the tenant switcher). */
@@ -84,5 +84,28 @@ export async function loadTenantContext(
     tenantName: membership.tenantName,
     tenantStatus: membership.tenantStatus,
     grants: [...byAssignment.values()],
+  };
+}
+
+/** No real membership: support-view writes that key on the membership simply match nothing. */
+export const SUPPORT_MEMBERSHIP_ID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * Read-only support view for a SaaS operator (RBAC_PERMISSIONS.md "audited support mode").
+ * Only *.view permissions, tenant-wide, and `supportMode` makes every write guard refuse.
+ * Callers must have verified the user is a platform admin with two-step sign-in.
+ */
+export async function loadSupportContext(db: Db, userId: string, tenantId: string): Promise<TenantContext | null> {
+  const [t] = await db.select({ id: tenants.id, name: tenants.name, status: tenants.status }).from(tenants).where(eq(tenants.id, tenantId));
+  if (!t) return null;
+  const view = (Object.keys(PERMISSIONS) as PermissionKey[]).filter((k) => k.endsWith(".view"));
+  return {
+    userId,
+    membershipId: SUPPORT_MEMBERSHIP_ID,
+    tenantId: t.id,
+    tenantName: t.name,
+    tenantStatus: t.status,
+    grants: [{ roleKey: "platform_support", propertyId: null, departmentId: null, permissions: new Set(view) }],
+    supportMode: true,
   };
 }

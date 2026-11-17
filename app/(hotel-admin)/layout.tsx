@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/(auth)/actions";
+import { exitSupportAction } from "@/app/(saas-admin)/platform/actions";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { requireTenantContext, requireUser } from "@/lib/auth/session";
@@ -82,7 +83,7 @@ export default async function HotelAdminLayout({ children }: { children: React.R
             </Link>
           ))}
           {user.isPlatformAdmin && (
-            <Link href="/platform" className="whitespace-nowrap rounded-ui px-3 py-2 text-sm hover:bg-surface-muted">
+            <Link href={ctx.supportMode ? `/platform/tenants/${ctx.tenantId}` : "/platform"} className="whitespace-nowrap rounded-ui px-3 py-2 text-sm hover:bg-surface-muted">
               Platform console
             </Link>
           )}
@@ -90,18 +91,34 @@ export default async function HotelAdminLayout({ children }: { children: React.R
       </aside>
       <div className="flex min-w-0 flex-col">
         <header className="flex items-center justify-end gap-3 border-b border-border bg-surface px-5 py-3">
-          <Link href="/profile" className="truncate text-sm text-muted-foreground underline underline-offset-4" title="My profile">
-            {user.name || user.email}
-          </Link>
-          <Link href="/select-tenant" className="text-sm text-primary underline underline-offset-4">
-            Switch hotel
-          </Link>
+          {ctx.supportMode ? (
+            <span className="truncate text-sm text-muted-foreground">{user.email}</span>
+          ) : (
+            <>
+              <Link href="/profile" className="truncate text-sm text-muted-foreground underline underline-offset-4" title="My profile">
+                {user.name || user.email}
+              </Link>
+              <Link href="/select-tenant" className="text-sm text-primary underline underline-offset-4">
+                Switch hotel
+              </Link>
+            </>
+          )}
           <form action={logoutAction}>
             <Button variant="secondary" size="sm" type="submit">
               Sign out
             </Button>
           </form>
         </header>
+        {ctx.supportMode && (
+          <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-warning bg-warning-surface px-5 py-2 text-sm font-medium text-warning">
+            <span>Super admin support view of {ctx.tenantName} · read-only · audited</span>
+            <form action={exitSupportAction.bind(null, ctx.tenantId)}>
+              <Button size="sm" variant="secondary" type="submit">
+                Exit support view
+              </Button>
+            </form>
+          </div>
+        )}
         <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-8">
           {trialLeft !== null && trialLeft <= 7 && (
             <Alert tone="info" className="mb-6">

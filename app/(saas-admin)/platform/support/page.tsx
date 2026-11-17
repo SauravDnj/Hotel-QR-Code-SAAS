@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Badge, Card, PageHeader } from "@/components/ui/card";
 import { requirePlatformAdmin } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
@@ -25,10 +24,7 @@ export default async function SupportPage() {
   const failedWebhooks = h.webhooks.find((w) => w.status === "failed")?.n ?? 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-5 py-8">
-      <Link href="/platform" className="text-sm text-primary underline underline-offset-4">
-        ← Tenants
-      </Link>
+    <div className="space-y-6">
       <PageHeader title="Support & operations" description="Daily health checks and account recovery. See docs/RUNBOOK.md for procedures." />
 
       <div className="grid gap-4 md:grid-cols-3">

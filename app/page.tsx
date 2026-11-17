@@ -4,7 +4,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export default async function Home() {
-  if (await getCurrentUser()) redirect("/dashboard");
+  const user = await getCurrentUser();
+  // Super admins land on the SaaS console; hotel staff on their dashboard.
+  if (user) redirect(user.isPlatformAdmin ? "/platform" : "/dashboard");
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-6 py-16">
       <p className="text-sm font-medium uppercase tracking-widest text-accent">Hotel SaaS</p>

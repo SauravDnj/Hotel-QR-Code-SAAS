@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
@@ -20,10 +19,7 @@ export default async function PlansPage() {
   const rows = await getDb().select().from(plans).orderBy(asc(plans.sortOrder));
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8">
-      <Link href="/platform" className="text-sm text-primary underline underline-offset-4">
-        ← Tenants
-      </Link>
+    <div>
       <PageHeader
         title="Plans & limits"
         description="Changes apply immediately to every hotel on the plan and are audited. Prices are in minor units (paise). Online checkout needs a Razorpay plan id with the SAME price, created in the Razorpay dashboard."

@@ -23,6 +23,8 @@ export interface TenantContext {
   tenantName: string;
   tenantStatus: TenantStatus;
   grants: readonly RoleGrant[];
+  /** SaaS operator's audited, read-only support view (no membership; view grants only). */
+  supportMode?: boolean;
 }
 
 export interface ResourceScope {
@@ -61,11 +63,12 @@ const WRITABLE: TenantStatus[] = ["trialing", "active", "past_due"];
 
 /** UI helper: show edit controls only when the server would allow the write. */
 export function canWrite(ctx: TenantContext, permission: PermissionKey, scope: ResourceScope = {}): boolean {
-  return WRITABLE.includes(ctx.tenantStatus) && can(ctx, permission, scope);
+  return !ctx.supportMode && WRITABLE.includes(ctx.tenantStatus) && can(ctx, permission, scope);
 }
 
 /** Suspended/cancelled tenants keep read access but cannot change operational data. */
 export function assertTenantWritable(ctx: TenantContext): void {
+  if (ctx.supportMode) throw new AppError("Support view is read-only.", "forbidden");
   if (!WRITABLE.includes(ctx.tenantStatus)) {
     throw new AppError(
       "This hotel account is not active. Changes are disabled until it is reactivated.",

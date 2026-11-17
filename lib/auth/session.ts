@@ -7,10 +7,12 @@ import { auth } from "@/auth";
 import { getDb } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import type { TenantContext } from "@/lib/permissions/authorize";
-import { listUserTenants, loadTenantContext } from "@/modules/tenants/context";
+import { listUserTenants, loadSupportContext, loadTenantContext } from "@/modules/tenants/context";
 import type { PlatformActor } from "@/modules/platform/service";
 
 export const ACTIVE_TENANT_COOKIE = "active_tenant";
+/** Hotel a SaaS operator is viewing in read-only support mode (set by an audited action, 1 h). */
+export const SUPPORT_TENANT_COOKIE = "support_tenant";
 
 export interface CurrentUser {
   id: string;
@@ -51,10 +53,18 @@ export async function requireUser(): Promise<CurrentUser> {
  */
 export const requireTenantContext = cache(async (): Promise<TenantContext> => {
   const user = await requireUser();
+  const jar = await cookies();
+  const support = jar.get(SUPPORT_TENANT_COOKIE)?.value;
+  // Support view: only honoured for operators with two-step sign-in; the cookie names a hotel
+  // the operator could already see in the console, so forging it grants nothing new.
+  if (support && user.isPlatformAdmin && user.mfaEnabled && /^[0-9a-f-]{36}$/i.test(support)) {
+    const ctx = await loadSupportContext(getDb(), user.id, support);
+    if (ctx) return ctx;
+  }
   const memberships = await listUserTenants(getDb(), user.id);
   if (memberships.length === 0) redirect(user.isPlatformAdmin ? "/platform" : "/no-access");
 
-  const selected = (await cookies()).get(ACTIVE_TENANT_COOKIE)?.value;
+  const selected = jar.get(ACTIVE_TENANT_COOKIE)?.value;
   const chosen =
     memberships.find((m) => m.tenantId === selected) ?? (memberships.length === 1 ? memberships[0] : undefined);
   if (!chosen) redirect("/select-tenant");

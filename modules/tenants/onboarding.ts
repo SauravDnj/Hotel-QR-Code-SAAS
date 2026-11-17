@@ -59,7 +59,11 @@ async function uniqueSlug(db: Db, name: string): Promise<string> {
  * Self-service onboarding: creates the tenant, owner user, membership, owner role
  * assignment and first property in ONE transaction, so a failure leaves nothing behind.
  */
-export async function createTenantWithOwner(db: Db, raw: SignupInput) {
+export async function createTenantWithOwner(
+  db: Db,
+  raw: SignupInput,
+  opts: { source?: "self_signup" | "platform_operator"; actorUserId?: string } = {},
+) {
   const input = signupSchema.parse(raw);
   const passwordHash = await hashPassword(input.password);
 
@@ -102,7 +106,7 @@ export async function createTenantWithOwner(db: Db, raw: SignupInput) {
       membershipId: membership.id,
       roleId: ownerRole.id,
       propertyId: null,
-      createdByUserId: user.id,
+      createdByUserId: opts.actorUserId ?? user.id,
     });
 
     const [property] = await tx
@@ -118,12 +122,12 @@ export async function createTenantWithOwner(db: Db, raw: SignupInput) {
 
     await writeAudit(tx, {
       tenantId: tenant.id,
-      actorUserId: user.id,
-      actorType: "user",
+      actorUserId: opts.actorUserId ?? user.id,
+      actorType: opts.source === "platform_operator" ? "platform_admin" : "user",
       action: "tenant.created",
       entityType: "tenant",
       entityId: tenant.id,
-      metadata: { source: "self_signup", firstPropertyId: property.id },
+      metadata: { source: opts.source ?? "self_signup", firstPropertyId: property.id },
     });
 
     // Start the trial on the default plan (created lazily later if plans aren't seeded yet).

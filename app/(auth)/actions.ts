@@ -1,11 +1,12 @@
 "use server";
 
 import { AuthError } from "next-auth";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { signIn, signOut } from "@/auth";
 import { formValues, toActionState, type ActionState } from "@/lib/actions";
 import { clientIp } from "@/lib/auth/ip";
+import { SUPPORT_TENANT_COOKIE } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { rateLimited } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
@@ -15,7 +16,7 @@ import { createTenantWithOwner, signupSchema } from "@/modules/tenants/onboardin
 /** Only allow same-site relative redirects after login (no open redirect). */
 function safeNext(value: FormDataEntryValue | null): string {
   const v = typeof value === "string" ? value : "";
-  return v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/\\") ? v : "/dashboard";
+  return v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/\\") ? v : "/";
 }
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -74,5 +75,6 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
 }
 
 export async function logoutAction() {
+  (await cookies()).delete(SUPPORT_TENANT_COOKIE);
   await signOut({ redirectTo: "/login" });
 }

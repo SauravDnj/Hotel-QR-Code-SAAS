@@ -74,6 +74,16 @@ New attack surface:
 | P9-10 | SMS/WhatsApp | PII in third-party messages | Escalation texts carry room, service and minutes only. Sent only to supervisors who opted in with a work number. | `notifications.test.ts` |
 | P9-11 | Retention | New PII stores | Booking guests are anonymised 180 days after departure (open bookings kept). Delivered outbox rows are purged after 30 days. | `reservations.test.ts` |
 
+### Super admin console (2026-11-17)
+
+| ID | Area | Risk | Control | Test |
+|---|---|---|---|---|
+| SA-1 | Console access | Non-operator reaches platform functions | Every service function asserts `isPlatformAdmin`; pages/actions use `requirePlatformAdmin` (404 + two-step required) | `platform-admin.test.ts` |
+| SA-2 | Support view | Operator changes hotel data | Support context has only `*.view` grants and `supportMode`, which makes `assertTenantWritable`/`canWrite` refuse; no membership id; 1 h cookie, cleared on sign-out; start is audited with a reason | `platform-admin.test.ts` |
+| SA-3 | Operator onboarding | Operator knows owner password | Random unknowable password + one-time 1 h reset link (HMAC stored) | `platform-admin.test.ts` |
+| SA-4 | Lock-out | Hotel or platform left without an admin | Can't disable the last active owner, block your own login, or remove your own super admin | `platform-admin.test.ts` |
+| SA-5 | Accountability | Silent operator changes | Plan, profile, payment, access, login and admin changes all audited with a required reason | `platform-admin.test.ts` |
+
 **Accepted:** DNS rebinding between the resolve check and the connection is still possible. Mitigations:
 the check runs per delivery, events are thin, and redirects are refused. **Revisit** if webhooks ever
 carry sensitive data.

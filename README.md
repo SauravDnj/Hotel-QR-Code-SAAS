@@ -310,6 +310,18 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
   now covers home-screen install, offline page and push notifications (iOS 16.4+ from the Home Screen),
   so no gap justifies a native app yet.
 
+## SaaS super admin console
+
+Super admins (`users.is_platform_admin`, two-step sign-in required) land on `/platform` after sign-in:
+
+- **Overview**: hotels, rooms, logins, MRR, request volume, trials ending, newest hotels.
+- **Hotels** (`/platform/tenants`): search/filter, **Add hotel** (owner gets a one-time set-password link), and per hotel:
+  usage, subscription (change plan, extend trial, mark paid for offline payments), suspend/reactivate, edit details,
+  staff with roles (turn access off/on, reset password, reset two-step), recent activity.
+- **Support view**: opens the hotel's own screens read-only for 1 hour (view permissions only, every write refused, audited).
+- **Users & staff** (`/platform/users`): every login across hotels; block/unblock, reset password/two-step, grant/remove super admin.
+- **Audit log** (`/platform/audit`): all hotels, filterable. Plans and Support pages as before.
+
 ## Security model (Phase 1)
 
 - **Tenant isolation:** the tenant always comes from the signed-in user's active membership
