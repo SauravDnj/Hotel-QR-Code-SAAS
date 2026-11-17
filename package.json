@@ -19,7 +19,8 @@
     "backup": "tsx scripts/backup.mts",
     "restore:check": "tsx scripts/restore-check.mts",
     "load:smoke": "node scripts/load-smoke.mjs",
-    "demo:seed": "tsx scripts/seed-demo.mts"
+    "demo:seed": "tsx scripts/seed-demo.mts",
+    "guide:md": "tsx scripts/export-guide-md.mts"
   },
   "engines": {
     "node": ">=22"

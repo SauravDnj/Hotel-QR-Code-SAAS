@@ -1,8 +1,9 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_ROLES } from "@/lib/permissions/catalog";
 import { HOTEL_GUIDE, PLATFORM_GUIDE, sectionsFor } from "@/modules/help/content";
+import { guideToMarkdown } from "@/modules/help/markdown";
 
 /** Every static page route under app/, as URL paths (route groups stripped). */
 function appRoutes(): Set<string> {
@@ -52,5 +53,11 @@ describe("in-app guide content", () => {
     expect(housekeeping).not.toContain("billing");
     expect(housekeeping).not.toContain("staff");
     expect(titlesFor("receptionist")).toContain("front-desk");
+  });
+
+  it("docs/*.md match the in-app guide (run `pnpm guide:md` after editing content.ts)", () => {
+    const read = (f: string) => readFileSync(join(process.cwd(), "docs", f), "utf8").replace(/\r\n/g, "\n");
+    expect(read("HOTEL_GUIDE.md")).toBe(guideToMarkdown(HOTEL_GUIDE, { roles: true }));
+    expect(read("SUPER_ADMIN_GUIDE.md")).toBe(guideToMarkdown(PLATFORM_GUIDE));
   });
 });
