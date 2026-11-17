@@ -4,6 +4,7 @@ import { serverEnv } from "@/lib/env";
 import { ablyPublisher } from "@/lib/realtime/ably";
 import { drainOutbox } from "@/modules/realtime/outbox";
 import { escalateOverdue } from "@/modules/requests/escalation";
+import { outboxNotifier } from "@/lib/realtime/drain";
 
 /**
  * Outbox sweeper for retries. Vercel Cron (or any scheduler) calls it with
@@ -17,6 +18,6 @@ export async function GET(request: Request) {
     return new Response("Not found", { status: 404 });
   }
   const escalated = await escalateOverdue(getDb());
-  const result = await drainOutbox(getDb(), ablyPublisher(), { limit: 200 });
+  const result = await drainOutbox(getDb(), ablyPublisher(), { limit: 200, notifier: outboxNotifier() });
   return Response.json({ escalated, ...result });
 }

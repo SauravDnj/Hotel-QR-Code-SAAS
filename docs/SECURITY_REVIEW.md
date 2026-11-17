@@ -50,3 +50,30 @@ Also fixed during this review:
 1. **F8:** rotate the Neon password.
 2. **F3:** separate the Preview database.
 3. Every SaaS operator account enrolls two-step sign-in on first console visit (enforced).
+
+## Phase 9 (expansion) review — 2026-11-17
+
+New attack surface:
+- reservations and folios (guest PII and money);
+- the public integration API;
+- outbound webhooks;
+- Web Push subscriptions;
+- SMS/WhatsApp.
+
+| # | Area | Risk | Control | Evidence |
+|---|---|---|---|---|
+| P9-1 | API keys | Key theft or overreach | 256-bit keys shown once, stored as HMAC. Scoped grants built only from the key's scopes and property. Revocation is immediate. Rate limit 120/min per key. Plan-gated. Writes audited as `api_key` with no person attributed. | `integrations.test.ts` (hash-only storage, scope denial, property scope, revoke, audit actor) |
+| P9-2 | Webhooks | SSRF to internal networks or cloud metadata | https only, port 443, no credentials, no `localhost`/`.local`/`.internal`, no private, loopback, link-local or CGNAT IP literals at creation. DNS re-resolved and private addresses refused **at each delivery**. Redirects not followed. 8 s timeout. | `integrations.test.ts` (URL matrix, private-DNS refusal) |
+| P9-3 | Webhooks | PII leakage to third parties | Thin events: ids, codes, dates, room codes and amounts only, never guest names, contact details or notes. | `integrations.test.ts` asserts the guest name and phone are absent from queued payloads |
+| P9-4 | Webhooks | Spoofed deliveries | HMAC-SHA256 over `timestamp.body`, secret encrypted at rest (AES-GCM), receiver guidance in `docs/API.md` | signature verified in `integrations.test.ts` |
+| P9-5 | Guest ordering | Price tampering | The client sends item ids and quantities only. The server reprices from `menu_items` (available, same service, same property) and snapshots the lines. Quantity is capped. | `ordering-folio.test.ts` |
+| P9-6 | Room charges | Charging someone else's bill | Room charge only when the QR's room has a checked-in stay. The stay is recorded at order time. The charge posts once (unique `request_id`) on completion and is voided on cancel. Composite same-tenant FKs on folio rows. | `ordering-folio.test.ts` |
+| P9-7 | Folio | Silent unpaid checkouts, tampering | Checkout with a balance needs an explicit choice (audited with the amount). Charges are voided with a reason, never deleted. No card data stored. | `ordering-folio.test.ts` |
+| P9-8 | Reservations | Overbooking and double-booking races | Per-room-type row lock serialises bookings. Capacity is checked per night, including walk-ins. Assigned rooms are checked for overlap. Walk-ins can't take promised rooms. | `reservations.test.ts` (concurrent last-room test) |
+| P9-9 | Push | Endpoint (capability URL) leakage | Endpoints never logged or shown. Devices labelled by browser and OS only. Gone endpoints deleted. Payloads contain room, service and an inbox link only. | `notifications.test.ts` |
+| P9-10 | SMS/WhatsApp | PII in third-party messages | Escalation texts carry room, service and minutes only. Sent only to supervisors who opted in with a work number. | `notifications.test.ts` |
+| P9-11 | Retention | New PII stores | Booking guests are anonymised 180 days after departure (open bookings kept). Delivered outbox rows are purged after 30 days. | `reservations.test.ts` |
+
+**Accepted:** DNS rebinding between the resolve check and the connection is still possible. Mitigations:
+the check runs per delivery, events are thin, and redirects are refused. **Revisit** if webhooks ever
+carry sensitive data.

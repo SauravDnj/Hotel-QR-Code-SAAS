@@ -17,6 +17,7 @@ export async function lockRoom(tx: Db, ctx: TenantContext, propertyId: string, r
     .select({
       id: rooms.id,
       propertyId: rooms.propertyId,
+      categoryId: rooms.categoryId,
       roomCode: rooms.roomCode,
       operationalStatus: rooms.operationalStatus,
       housekeepingStatus: rooms.housekeepingStatus,

@@ -57,6 +57,7 @@ export const stays = pgTable(
       foreignColumns: [guests.id, guests.tenantId],
     }).onDelete("restrict"),
     uniqueIndex("stays_one_active_per_room").on(t.roomId).where(sql`${t.status} = 'checked_in'`),
+    unique("stays_id_tenant_unique").on(t.id, t.tenantId),
     index("stays_room_idx").on(t.tenantId, t.roomId, t.checkInAt),
     index("stays_departures_idx").on(t.tenantId, t.propertyId, t.status, t.expectedCheckoutAt),
   ],

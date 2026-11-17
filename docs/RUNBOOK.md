@@ -100,3 +100,39 @@ Implements `hotel-saas-documentation/08-deployment/OPERATIONS_RUNBOOK.md` for th
   - payment details;
   - QR/status/invite links in public channels;
   - guest identity documents.
+
+## Phase 9 operations
+
+### Reservations
+- Bookings never exceed sellable rooms of a type. Rooms that are out of order or inactive are not sold.
+  Taking rooms out of service can leave a night **over capacity**: the calendar shows "Full" or a
+  negative free count. Move the guests to another type or put the room back in service.
+- Late arrivals stay "Confirmed" until checked in, cancelled or marked no-show (from the arrival date).
+
+### Guest bills and orders
+- A room-charged order posts to the bill **when staff complete it**; cancelling voids it.
+- Checkout with a balance needs "Check out with balance due" (audited with the amount).
+- Card and UPI payments are taken on the hotel's own terminal; reception records them on the bill.
+
+### Phone notifications and SMS/WhatsApp
+- **Web Push needs `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`** (Vercel env).
+  - Never change them casually: changing the keys invalidates every registered device, and staff must
+    turn notifications on again.
+  - iPhone: staff must add the app to the Home Screen first (iOS 16.4+).
+- **SMS/WhatsApp escalations need the `TWILIO_*` variables.**
+  - WhatsApp outside a 24-hour conversation window requires an approved template
+    (`TWILIO_WHATSAPP_CONTENT_SID`).
+  - Failures are logged as `escalation_message_failed`; the request is still escalated in the inbox.
+- Push failures (`push_delivery_failed`) remove a device after 10 consecutive errors. Expired devices
+  are removed at once.
+
+### Integrations (API and webhooks)
+- **Suspected key leak:** Hotel settings → Integrations → **Revoke** (immediate), then create a new key.
+  Check the audit log for `api_key` actions.
+- **Webhook failing:** the page shows the last status and error.
+  - Deliveries retry with backoff.
+  - After 50 consecutive failures the endpoint is paused; "Enable" resets it.
+  - "Send test event" checks connectivity.
+- "Refused: the host resolves to a private address" means the hotel's endpoint DNS points inside a
+  private network. This is blocked by design.
+- `/platform/support` → outbox "dead" counts include webhook jobs that exhausted their retries.

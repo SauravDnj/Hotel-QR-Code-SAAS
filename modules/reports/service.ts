@@ -3,7 +3,10 @@ import { z } from "zod";
 import type { Db } from "@/lib/db/types";
 import {
   departments,
+  folioCharges,
+  folioPayments,
   housekeepingTasks,
+  reservations,
   requestStatusHistory,
   rooms,
   serviceRequests,
@@ -211,7 +214,9 @@ export async function propertyReport(db: Db, ctx: TenantContext, propertyId: str
     .limit(20);
 
   const inspections = (hk?.inspPassed ?? 0) + (hk?.inspFailed ?? 0);
+  const commercial = await commercialMetrics(db, ctx.tenantId, property.id, range);
   return {
+    commercial,
     property,
     range: { from: range.from, to: range.to, days: range.dates.length },
     occupancy: {
@@ -274,4 +279,114 @@ export async function dashboardMetrics(db: Db, ctx: TenantContext, now: Date = n
     requests = r ?? { new: 0, inProgress: 0, overdue: 0, escalated: 0 };
   }
   return { rooms, departuresToday, requests };
+}
+
+/**
+ * Phase 9 commercial figures for a property and range (ANALYTICS_REPORTING.md "Revenue reports
+ * only where billing/POS data is integrated"): guest orders delivered, guest-bill charges and
+ * payments recorded here, and booking activity. Amounts are minor units of the property currency.
+ */
+export async function commercialMetrics(db: Db, tenantId: string, propertyId: string, range: { from: string; to: string; start: Date; end: Date }) {
+  const [orders] = await db
+    .select({
+      delivered: count(),
+      totalMinor: sql<number>`coalesce(sum(${serviceRequests.totalMinor}), 0)`.mapWith(Number),
+      roomChargedMinor: sql<number>`coalesce(sum(${serviceRequests.totalMinor}) filter (where ${serviceRequests.paymentMethod} = 'room'), 0)`.mapWith(Number),
+    })
+    .from(serviceRequests)
+    .where(
+      and(
+        eq(serviceRequests.tenantId, tenantId),
+        eq(serviceRequests.propertyId, propertyId),
+        eq(serviceRequests.kind, "menu"),
+        eq(serviceRequests.status, "completed"),
+        gte(serviceRequests.completedAt, range.start),
+        lt(serviceRequests.completedAt, range.end),
+      ),
+    );
+  const [charges] = await db
+    .select({ totalMinor: sql<number>`coalesce(sum(${folioCharges.amountMinor}), 0)`.mapWith(Number) })
+    .from(folioCharges)
+    .where(
+      and(
+        eq(folioCharges.tenantId, tenantId),
+        eq(folioCharges.propertyId, propertyId),
+        isNull(folioCharges.voidedAt),
+        gte(folioCharges.createdAt, range.start),
+        lt(folioCharges.createdAt, range.end),
+      ),
+    );
+  const [payments] = await db
+    .select({ totalMinor: sql<number>`coalesce(sum(${folioPayments.amountMinor}), 0)`.mapWith(Number) })
+    .from(folioPayments)
+    .where(and(eq(folioPayments.tenantId, tenantId), eq(folioPayments.propertyId, propertyId), gte(folioPayments.createdAt, range.start), lt(folioPayments.createdAt, range.end)));
+  const [bookings] = await db
+    .select({
+      created: sql<number>`count(*) filter (where ${reservations.createdAt} >= ${range.start.toISOString()}::timestamptz and ${reservations.createdAt} < ${range.end.toISOString()}::timestamptz)`.mapWith(Number),
+      arrivals: sql<number>`count(*) filter (where ${reservations.arrivalDate} between ${range.from}::date and ${range.to}::date and ${reservations.status} in ('confirmed', 'checked_in', 'completed'))`.mapWith(Number),
+      cancelled: sql<number>`count(*) filter (where ${reservations.status} = 'cancelled' and ${reservations.cancelledAt} >= ${range.start.toISOString()}::timestamptz and ${reservations.cancelledAt} < ${range.end.toISOString()}::timestamptz)`.mapWith(Number),
+      noShows: sql<number>`count(*) filter (where ${reservations.status} = 'no_show' and ${reservations.arrivalDate} between ${range.from}::date and ${range.to}::date)`.mapWith(Number),
+    })
+    .from(reservations)
+    .where(and(eq(reservations.tenantId, tenantId), eq(reservations.propertyId, propertyId)));
+  return {
+    orders: { delivered: orders?.delivered ?? 0, totalMinor: orders?.totalMinor ?? 0, roomChargedMinor: orders?.roomChargedMinor ?? 0 },
+    folio: { chargedMinor: charges?.totalMinor ?? 0, paidMinor: payments?.totalMinor ?? 0 },
+    bookings: bookings ?? { created: 0, arrivals: 0, cancelled: 0, noShows: 0 },
+  };
+}
+
+/**
+ * Multi-property comparison (Phase 9): one row per property the caller may report on, same
+ * definitions as the property report. Ranges are resolved in each property's own timezone.
+ */
+export async function portfolioReport(db: Db, ctx: TenantContext, raw: z.input<typeof rangeSchema>, now: Date = new Date()) {
+  await assertModule(db, ctx.tenantId, "reports");
+  const scope = propertyScope(ctx, "report.view");
+  const props = (await listProperties(db, ctx)).filter((p) => scope === "all" || scope.includes(p.id));
+  const rows = [];
+  for (const p of props) {
+    const r = await propertyReport(db, ctx, p.id, raw, now);
+    rows.push({
+      propertyId: p.id,
+      name: p.name,
+      currency: p.currency,
+      range: r.range,
+      sellable: r.occupancy.sellable,
+      occupancy: r.occupancy.rate,
+      roomNights: r.occupancy.roomNights,
+      checkIns: r.occupancy.checkIns,
+      requests: r.requests.total ?? 0,
+      ackP50: r.requests.ackP50 ?? null,
+      doneP50: r.requests.doneP50 ?? null,
+      escalated: r.requests.escalated ?? 0,
+      onTimeRate:
+        r.requests.total && r.requests.byDepartment.length
+          ? 1 - r.requests.byDepartment.reduce((a, d) => a + d.lateAck, 0) / Math.max(1, r.requests.total - (r.requests.cancelled ?? 0))
+          : null,
+      inspectionPassRate: r.housekeeping.passRate,
+      ordersMinor: r.commercial.orders.totalMinor,
+      chargedMinor: r.commercial.folio.chargedMinor,
+      paidMinor: r.commercial.folio.paidMinor,
+      bookings: r.commercial.bookings.created,
+      arrivals: r.commercial.bookings.arrivals,
+      noShows: r.commercial.bookings.noShows,
+    });
+  }
+  const sellable = rows.reduce((a, r) => a + r.sellable, 0);
+  const nights = rows[0]?.range.days ?? 0;
+  return {
+    rows,
+    totals: {
+      properties: rows.length,
+      sellable,
+      roomNights: rows.reduce((a, r) => a + r.roomNights, 0),
+      requests: rows.reduce((a, r) => a + r.requests, 0),
+      escalated: rows.reduce((a, r) => a + r.escalated, 0),
+      // Revenue is only summed across properties that share one currency.
+      currency: new Set(rows.map((r) => r.currency)).size === 1 ? (rows[0]?.currency ?? null) : null,
+      ordersMinor: rows.reduce((a, r) => a + r.ordersMinor, 0),
+      nights,
+    },
+  };
 }

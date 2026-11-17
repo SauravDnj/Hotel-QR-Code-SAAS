@@ -13,6 +13,7 @@ import type { PermissionKey } from "@/lib/permissions/catalog";
 const NAV: { href: string; label: string; permission?: PermissionKey; anyProperty?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/front-desk", label: "Front desk", permission: "stay.view", anyProperty: true },
+  { href: "/reservations", label: "Reservations", permission: "reservation.view", anyProperty: true },
   { href: "/housekeeping", label: "Housekeeping", permission: "housekeeping.view", anyProperty: true },
   { href: "/rooms", label: "Rooms" },
   { href: "/properties", label: "Properties" },

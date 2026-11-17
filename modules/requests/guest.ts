@@ -5,17 +5,23 @@ import {
   departments,
   guestPortalSettings,
   properties,
+  requestItems,
   requestStatusHistory,
   serviceItems,
   serviceRequests,
+  stays,
 } from "@/lib/db/schema";
 import { decryptSecret, encryptSecret, generateQrToken, hashQrToken, isWellFormedQrToken } from "@/lib/crypto/secrets";
 import { consumeRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { findActiveQr } from "@/modules/guest-portal/public";
 import { enqueueRequestEvent } from "@/modules/realtime/outbox";
+import { enqueueNotification } from "@/modules/notifications/service";
+import { enqueueWebhookEvent } from "@/modules/integrations/webhooks";
 import { isUniqueViolation } from "@/modules/rooms/db-errors";
 import { isAvailableAt, listGuestServices } from "@/modules/services/catalog";
 import { GUEST_STATUS } from "./state";
+import { listGuestMenu, priceOrder } from "@/modules/ordering/menu";
+import { addDays, localDate, zonedToUtc } from "@/lib/timezones";
 
 /**
  * Guest request submission (Zprompt/04). The QR token is the only identity input: tenant,
@@ -46,8 +52,17 @@ export const guestRequestSchema = z.object({
     .max(NOTE_MAX, `Please keep the note under ${NOTE_MAX} characters`)
     .optional()
     .transform((v) => (v ? v : null)),
+  // Phase 9 — menu orders: menu item id → quantity; booking services: local date + time.
+  items: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+  paymentMethod: z.string().optional(),
+  scheduledDate: z.string().optional(),
+  scheduledTime: z.string().optional(),
 });
 export type GuestRequestInput = z.input<typeof guestRequestSchema>;
+
+export const MAX_ORDER_LINES = 30;
+export const MAX_LINE_QUANTITY = 20;
+export const BOOKING_HORIZON_DAYS = 14;
 
 export type SubmitResult =
   | { kind: "ok"; statusToken: string; duplicate: boolean; requestId: string }
@@ -107,13 +122,61 @@ export async function submitGuestRequest(
     );
   if (!service) return invalid("serviceId", "This service is not available right now.");
   const item = service.item;
-  if (!isAvailableAt(item, qr.timezone, opts.now)) {
+  const now = opts.now ?? new Date();
+  // Bookings are for a later time, so the hours apply to the chosen time, not to now.
+  if (item.kind !== "booking" && !isAvailableAt(item, qr.timezone, now)) {
     return invalid("serviceId", `This service is available ${item.availableFrom}–${item.availableTo}.`);
+  }
+
+  let scheduledFor: Date | null = null;
+  if (item.kind === "booking") {
+    const date = input.scheduledDate ?? "";
+    const time = input.scheduledTime ?? "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      return invalid("scheduledTime", "Please choose a date and time.");
+    }
+    scheduledFor = zonedToUtc(date, time, qr.timezone);
+    if (scheduledFor.getTime() < now.getTime() - 5 * 60_000) return invalid("scheduledTime", "Please choose a time in the future.");
+    if (scheduledFor.getTime() > now.getTime() + BOOKING_HORIZON_DAYS * 86400_000) {
+      return invalid("scheduledDate", `You can book up to ${BOOKING_HORIZON_DAYS} days ahead.`);
+    }
+    if (!isAvailableAt(item, qr.timezone, scheduledFor)) {
+      return invalid("scheduledTime", `Please choose a time between ${item.availableFrom} and ${item.availableTo}.`);
+    }
+  }
+
+  // Menu orders: lines priced from the database; payment by room charge or on delivery.
+  let order: { lines: Awaited<ReturnType<typeof priceOrder>> & object; paymentMethod: "room" | "on_delivery"; stayId: string | null } | null = null;
+  if (item.kind === "menu") {
+    const lines: { menuItemId: string; quantity: number }[] = [];
+    for (const [id, raw] of Object.entries(input.items ?? {})) {
+      const qty = Number(raw);
+      if (!qty) continue;
+      if (!z.uuid().safeParse(id).success || !Number.isInteger(qty) || qty < 0 || qty > MAX_LINE_QUANTITY) {
+        return invalid("items", `Choose up to ${MAX_LINE_QUANTITY} of each item.`);
+      }
+      lines.push({ menuItemId: id, quantity: qty });
+    }
+    if (lines.length === 0) return invalid("items", "Please choose at least one item.");
+    if (lines.length > MAX_ORDER_LINES) return invalid("items", "That's a very large order. Please call reception.");
+    const priced = await priceOrder(db, { tenantId: qr.tenantId, propertyId: qr.propertyId, serviceItemId: item.id }, lines);
+    if (!priced) return invalid("items", "Part of your order is no longer available. Please review the menu.");
+    const [stay] = await db
+      .select({ id: stays.id })
+      .from(stays)
+      .where(and(eq(stays.tenantId, qr.tenantId), eq(stays.roomId, qr.roomId), eq(stays.status, "checked_in")));
+    const paymentMethod = input.paymentMethod === "room" ? "room" : "on_delivery";
+    if (paymentMethod === "room" && (!item.allowRoomCharge || !stay)) {
+      return invalid("paymentMethod", "Charging to the room isn't available here. Please choose to pay on delivery.");
+    }
+    order = { lines: priced, paymentMethod, stayId: stay?.id ?? null };
   }
 
   // Server-side field rules from the service configuration.
   let quantity: number | null = null;
-  if (item.maxQuantity > 0) {
+  if (order) {
+    quantity = order.lines.lines.reduce((n, l) => n + l.quantity, 0);
+  } else if (item.maxQuantity > 0) {
     quantity = input.quantity ?? 1;
     if (quantity < 1 || quantity > item.maxQuantity) return invalid("quantity", `Choose 1 to ${item.maxQuantity}.`);
   }
@@ -126,7 +189,6 @@ export async function submitGuestRequest(
   if (item.noteMode === "required" && !note) return invalid("note", "Please tell us what you need.");
 
   const statusToken = generateQrToken();
-  const now = opts.now ?? new Date();
   try {
     const requestId = await db.transaction(async (tx) => {
       const [row] = await tx
@@ -147,6 +209,12 @@ export async function submitGuestRequest(
           ackMessage: item.ackMessage,
           quantity,
           option,
+          kind: item.kind,
+          scheduledFor,
+          totalMinor: order?.lines.totalMinor ?? null,
+          currency: order ? qr.currency : null,
+          paymentMethod: order?.paymentMethod ?? null,
+          stayId: order?.stayId ?? null,
           guestNote: note,
           idempotencyKey: input.idempotencyKey,
           guestTokenHash: hashQrToken(statusToken),
@@ -155,6 +223,9 @@ export async function submitGuestRequest(
           submittedAt: now,
         })
         .returning({ id: serviceRequests.id });
+      if (order) {
+        await tx.insert(requestItems).values(order.lines.lines.map((l) => ({ ...l, tenantId: qr.tenantId, requestId: row.id })));
+      }
       await tx.insert(requestStatusHistory).values({
         tenantId: qr.tenantId,
         requestId: row.id,
@@ -168,6 +239,24 @@ export async function submitGuestRequest(
         departmentId: item.departmentId,
         requestId: row.id,
         type: "service_request.created",
+      });
+      await enqueueNotification(tx, {
+        tenantId: qr.tenantId,
+        propertyId: qr.propertyId,
+        departmentId: item.departmentId,
+        requestId: row.id,
+        kind: "request_new",
+      });
+      await enqueueWebhookEvent(tx, qr.tenantId, "request.created", {
+        requestId: row.id,
+        propertyId: qr.propertyId,
+        roomCode: qr.roomCode,
+        service: item.name,
+        department: service.departmentName,
+        kind: item.kind,
+        totalMinor: order?.lines.totalMinor ?? null,
+        currency: order ? qr.currency : null,
+        scheduledFor: scheduledFor?.toISOString() ?? null,
       });
       return row.id;
     });
@@ -195,11 +284,34 @@ export async function getGuestServiceForm(db: Db, qrToken: unknown, serviceId: s
   const services = await listGuestServices(db, { tenantId: qr.tenantId, propertyId: qr.propertyId, timezone: qr.timezone });
   const service = services.find((s) => s.id === serviceId);
   if (!service) return null;
+  let menu: Awaited<ReturnType<typeof listGuestMenu>> = [];
+  let canChargeRoom = false;
+  if (service.kind === "menu") {
+    menu = await listGuestMenu(db, { tenantId: qr.tenantId, propertyId: qr.propertyId, serviceItemId: service.id });
+    if (service.allowRoomCharge) {
+      const [stay] = await db
+        .select({ id: stays.id })
+        .from(stays)
+        .where(and(eq(stays.tenantId, qr.tenantId), eq(stays.roomId, qr.roomId), eq(stays.status, "checked_in")));
+      canChargeRoom = Boolean(stay);
+    }
+  }
   return {
     hotelName: qr.propertyName,
     accentColor: qr.settings?.accentColor ?? null,
     roomLabel: qr.settings?.showRoomLabel === false ? null : qr.roomCode,
+    currency: qr.currency,
+    timezone: qr.timezone,
     service,
+    menu,
+    canChargeRoom,
+    booking:
+      service.kind === "booking"
+        ? (() => {
+            const today = localDate(new Date(), qr.timezone);
+            return { minDate: today, maxDate: addDays(today, BOOKING_HORIZON_DAYS - 1), from: service.availableFrom, to: service.availableTo };
+          })()
+        : undefined,
   };
 }
 
@@ -228,6 +340,8 @@ export interface GuestRequestView {
   submittedAt: Date;
   updatedAt: Date;
   timeline: { label: string; at: Date }[];
+  scheduledFor: Date | null;
+  order: { lines: { name: string; quantity: number; lineTotalMinor: number }[]; totalMinor: number; currency: string; paymentMethod: string } | null;
 }
 
 export type StatusResult = { kind: "ok"; request: GuestRequestView } | { kind: "unavailable" } | { kind: "rate_limited" };
@@ -268,6 +382,14 @@ export async function getGuestRequestStatus(db: Db, token: unknown, opts: { ip: 
   }
 
   const r = row.r;
+  const lines =
+    r.kind === "menu"
+      ? await db
+          .select({ name: requestItems.name, quantity: requestItems.quantity, lineTotalMinor: requestItems.lineTotalMinor })
+          .from(requestItems)
+          .where(and(eq(requestItems.tenantId, r.tenantId), eq(requestItems.requestId, r.id)))
+          .orderBy(asc(requestItems.name))
+      : [];
   return {
     kind: "ok",
     request: {
@@ -287,6 +409,11 @@ export async function getGuestRequestStatus(db: Db, token: unknown, opts: { ip: 
       submittedAt: r.submittedAt,
       updatedAt: r.updatedAt,
       timeline,
+      scheduledFor: r.scheduledFor,
+      order:
+        r.kind === "menu" && r.totalMinor !== null && r.currency
+          ? { lines, totalMinor: r.totalMinor, currency: r.currency, paymentMethod: r.paymentMethod ?? "on_delivery" }
+          : null,
     },
   };
 }

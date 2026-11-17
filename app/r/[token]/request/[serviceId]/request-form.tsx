@@ -13,9 +13,11 @@ interface Props {
   noteMode: "none" | "optional" | "required";
   accent: string;
   onAccent: string;
+  /** Booking services (Phase 9): choose a local date and time. */
+  booking?: { minDate: string; maxDate: string; from: string | null; to: string | null };
 }
 
-export function RequestForm({ action, serviceId, idempotencyKey, maxQuantity, options, noteMode, accent, onAccent }: Props) {
+export function RequestForm({ action, serviceId, idempotencyKey, maxQuantity, options, noteMode, accent, onAccent, booking }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
   const [qty, setQty] = useState(1);
   const e = state.fieldErrors ?? {};
@@ -24,6 +26,50 @@ export function RequestForm({ action, serviceId, idempotencyKey, maxQuantity, op
     <form action={formAction} className="mt-5 space-y-5" aria-label="Request form">
       <input type="hidden" name="serviceId" value={serviceId} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+
+      {booking && (
+        <fieldset>
+          <legend className="mb-2 text-sm font-medium">When?</legend>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="scheduledDate" className="mb-1 block text-xs text-muted-foreground">
+                Date
+              </label>
+              <input
+                id="scheduledDate"
+                name="scheduledDate"
+                type="date"
+                required
+                min={booking.minDate}
+                max={booking.maxDate}
+                defaultValue={booking.minDate}
+                className="block min-h-12 w-full rounded-xl border border-border bg-surface px-3 text-base"
+              />
+            </div>
+            <div>
+              <label htmlFor="scheduledTime" className="mb-1 block text-xs text-muted-foreground">
+                Time
+              </label>
+              <input
+                id="scheduledTime"
+                name="scheduledTime"
+                type="time"
+                required
+                className="block min-h-12 w-full rounded-xl border border-border bg-surface px-3 text-base"
+                aria-invalid={e.scheduledTime ? true : undefined}
+              />
+            </div>
+          </div>
+          {booking.from && booking.to && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Available {booking.from}–{booking.to}
+            </p>
+          )}
+          {(e.scheduledTime || e.scheduledDate) && (
+            <p className="mt-1 text-sm text-danger">{(e.scheduledTime ?? e.scheduledDate)![0]}</p>
+          )}
+        </fieldset>
+      )}
 
       {maxQuantity > 0 && (
         <fieldset>
@@ -104,7 +150,7 @@ export function RequestForm({ action, serviceId, idempotencyKey, maxQuantity, op
         className="flex min-h-14 w-full items-center justify-center rounded-2xl text-base font-semibold shadow-sm disabled:opacity-60"
         style={{ background: accent, color: onAccent }}
       >
-        {pending ? "Sending…" : "Send request"}
+        {pending ? "Sending…" : booking ? "Request booking" : "Send request"}
       </button>
     </form>
   );

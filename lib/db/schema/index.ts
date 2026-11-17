@@ -8,3 +8,7 @@ export * from "./requests";
 export * from "./staff";
 export * from "./stays";
 export * from "./billing";
+export * from "./reservations";
+export * from "./ordering";
+export * from "./notifications";
+export * from "./integrations";

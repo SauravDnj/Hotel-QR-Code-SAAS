@@ -5,10 +5,13 @@ import { PermissionDenied } from "@/components/permission-denied";
 import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { requireTenantContext } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
-import { canWrite } from "@/lib/permissions/authorize";
+import { can, canWrite } from "@/lib/permissions/authorize";
 import { tomorrowIn } from "@/lib/timezones";
 import { formatDateTime } from "@/lib/utils";
 import { getPortalSettings } from "@/modules/guest-portal/settings";
+import { listReservations } from "@/modules/reservations/service";
+import { stayBalances } from "@/modules/ordering/folio";
+import { formatMoney } from "@/lib/money";
 import { listAvailableRooms, listInHouse } from "@/modules/stays/service";
 import { PropertyPicker, propertiesFor } from "../property-picker";
 import { checkInAction, checkOutAction } from "./actions";
@@ -26,12 +29,16 @@ export default async function FrontDeskPage({ searchParams }: { searchParams: Pr
   const scope = { propertyId: selected.id };
   const canIn = canWrite(ctx, "stay.check_in", scope);
   const canOut = canWrite(ctx, "stay.check_out", scope);
-  const [{ stays }, available, portal] = await Promise.all([
+  const showArrivals = can(ctx, "reservation.view", scope);
+  const [{ stays }, available, portal, arrivals] = await Promise.all([
     listInHouse(db, ctx, selected.id),
     canIn ? listAvailableRooms(db, ctx, selected.id) : Promise.resolve([]),
     getPortalSettings(db, ctx, selected.id),
+    showArrivals ? listReservations(db, ctx, selected.id, { view: "arrivals" }).then((l) => l.reservations) : Promise.resolve([]),
   ]);
   const tomorrow = tomorrowIn(selected.timezone);
+  const showBills = can(ctx, "folio.view", scope);
+  const balances = showBills ? await stayBalances(db, ctx.tenantId, stays.map((s) => s.stayId)) : new Map<string, number>();
 
   return (
     <div className="space-y-6">
@@ -46,9 +53,40 @@ export default async function FrontDeskPage({ searchParams }: { searchParams: Pr
       </div>
       <PropertyPicker base="/front-desk" props={props} selectedId={selected.id} />
 
+      {showArrivals && (
+        <Card className="overflow-x-auto p-0">
+          <h2 className="px-4 pt-4 text-sm font-semibold">Arrivals ({arrivals.length})</h2>
+          {arrivals.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground">No bookings due today.</p>
+          ) : (
+            <table className="mt-2 w-full text-left text-sm" aria-label="Arrivals">
+              <tbody>
+                {arrivals.map((a) => (
+                  <tr key={a.id} className="border-t border-border">
+                    <td className="px-4 py-2 font-mono font-semibold">{a.code}</td>
+                    <td className="px-4 py-2">
+                      {a.guestName}
+                      <div className="text-xs text-muted-foreground">
+                        {a.categoryName} · {a.roomCode ?? "room not assigned"} · until {a.departureDate}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2">{a.late && <Badge tone="warning">Late arrival</Badge>}</td>
+                    <td className="px-4 py-2 text-right">
+                      <Link href={`/reservations/${a.id}?property=${selected.id}`} className="text-primary underline underline-offset-4">
+                        {canIn ? "Check in" : "Open"}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      )}
+
       {canIn && (
         <Card>
-          <h2 className="mb-1 text-sm font-semibold">Check in</h2>
+          <h2 className="mb-1 text-sm font-semibold">Walk-in check-in</h2>
           <p className="mb-4 text-xs text-muted-foreground">
             Only rooms that are in service, vacant, cleaned{" "}
             {selected.requireInspection ? "and inspected " : ""}are offered. Guest details stay private to reception.
@@ -76,6 +114,7 @@ export default async function FrontDeskPage({ searchParams }: { searchParams: Pr
                 <th className="px-4 py-2 font-medium">Guest</th>
                 <th className="px-4 py-2 font-medium">Checked in</th>
                 <th className="px-4 py-2 font-medium">Expected checkout</th>
+                {showBills && <th className="px-4 py-2 font-medium">Bill</th>}
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -95,9 +134,21 @@ export default async function FrontDeskPage({ searchParams }: { searchParams: Pr
                     {formatDateTime(s.expectedCheckoutAt, selected.timezone)}{" "}
                     {s.overdue ? <Badge tone="danger">Overdue</Badge> : s.departsToday && <Badge tone="warning">Today</Badge>}
                   </td>
+                  {showBills && (
+                    <td className="px-4 py-2">
+                      <Link href={`/front-desk/folio/${s.stayId}?property=${selected.id}`} className="text-primary underline underline-offset-4">
+                        {(balances.get(s.stayId) ?? 0) > 0 ? `${formatMoney(balances.get(s.stayId)!, selected.currency)} due` : "View bill"}
+                      </Link>
+                    </td>
+                  )}
                   <td className="px-4 py-2 text-right">
                     {canOut && (
                       <ActionForm action={checkOutAction.bind(null, selected.id, s.stayId)} aria-label={`Check out room ${s.roomCode}`}>
+                        {(balances.get(s.stayId) ?? 0) > 0 && (
+                          <label className="mb-1 flex items-center justify-end gap-1 text-xs">
+                            <input type="checkbox" name="allowBalance" className="size-3.5" /> Check out with balance due
+                          </label>
+                        )}
                         <ConfirmButton size="sm" variant="secondary" confirmLabel="Confirm checkout">
                           Check out
                         </ConfirmButton>

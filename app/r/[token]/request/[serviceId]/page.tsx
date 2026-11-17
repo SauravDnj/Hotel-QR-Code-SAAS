@@ -8,6 +8,7 @@ import { getDb } from "@/lib/db/client";
 import { getGuestServiceForm } from "@/modules/requests/guest";
 import { submitGuestRequestAction } from "../../../actions";
 import { GuestShell, readableOn } from "../../../guest-shell";
+import { OrderForm } from "./order-form";
 import { RequestForm } from "./request-form";
 
 export const metadata: Metadata = {
@@ -42,7 +43,19 @@ export default async function GuestRequestPage({ params }: { params: Promise<{ t
           </div>
         </div>
         {service.description && <p className="mt-3 text-sm text-muted-foreground">{service.description}</p>}
-        {!service.availableNow ? (
+        {service.kind === "menu" && service.availableNow ? (
+          <OrderForm
+            action={submitGuestRequestAction.bind(null, token)}
+            serviceId={service.id}
+            idempotencyKey={crypto.randomUUID()}
+            menu={data.menu}
+            currency={data.currency}
+            canChargeRoom={data.canChargeRoom}
+            noteMode={service.noteMode}
+            accent={accent}
+            onAccent={readableOn(accent)}
+          />
+        ) : !service.availableNow && service.kind !== "booking" ? (
           <p className="mt-4 rounded-xl bg-surface-muted p-3 text-sm" role="status">
             Available {service.availableFrom}–{service.availableTo}. Please call reception if it&apos;s urgent.
           </p>
@@ -56,6 +69,7 @@ export default async function GuestRequestPage({ params }: { params: Promise<{ t
             noteMode={service.noteMode}
             accent={accent}
             onAccent={readableOn(accent)}
+            booking={data.booking}
           />
         )}
       </div>

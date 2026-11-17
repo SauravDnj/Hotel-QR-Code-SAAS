@@ -6,6 +6,7 @@ import { sweepSubscriptions } from "@/modules/billing/subscription";
 import { drainOutbox } from "@/modules/realtime/outbox";
 import { escalateOverdue } from "@/modules/requests/escalation";
 import { applyRetention } from "@/modules/privacy/retention";
+import { outboxNotifier } from "@/lib/realtime/drain";
 
 /**
  * Daily maintenance (vercel.json cron): subscription lifecycle (trial end → grace →
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   const db = getDb();
   const billing = await sweepSubscriptions(db);
   const escalated = await escalateOverdue(db);
-  const outbox = await drainOutbox(db, ablyPublisher(), { limit: 500 });
+  const outbox = await drainOutbox(db, ablyPublisher(), { limit: 500, notifier: outboxNotifier() });
   const retention = await applyRetention(db);
   return Response.json({ billing, escalated, outbox, retention });
 }

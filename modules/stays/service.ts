@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db/types";
-import { floors, guests, housekeepingTasks, rooms, stays } from "@/lib/db/schema";
+import { floors, guests, housekeepingTasks, reservations, rooms, stays } from "@/lib/db/schema";
 import { conflict, notFound } from "@/lib/errors";
 import { can, type TenantContext } from "@/lib/permissions/authorize";
 import { localDate, zonedToUtc } from "@/lib/timezones";
@@ -11,11 +11,16 @@ import { ensureTask } from "@/modules/housekeeping/service";
 import { READINESS_LABEL, roomReadiness } from "@/modules/housekeeping/readiness";
 import { lockRoom, setHousekeepingStatus } from "@/modules/housekeeping/room-lock";
 import { requireProperty } from "@/modules/properties/access";
+import { assertCapacity, assertRoomFree, lockCategory } from "@/modules/reservations/availability";
+import { stayBalances } from "@/modules/ordering/folio";
+import { enqueueWebhookEvent } from "@/modules/integrations/webhooks";
+import { formatMoney } from "@/lib/money";
 import { isUniqueViolation } from "@/modules/rooms/db-errors";
 import { roomNaturalOrder } from "@/modules/rooms/rooms";
 
 /**
- * Reception: check-in and check-out (CORE_WORKFLOWS.md §7–8). Not a reservation system.
+ * Reception: check-in and check-out (CORE_WORKFLOWS.md §7–8). Walk-ins respect reservations
+ * (Phase 9): no room promised to a booking, no sold-out room type.
  * - Check-in only into a READY room (in service, not occupied, cleaned and inspected per
  *   property policy). One active stay per room: row lock + partial unique index.
  * - Check-out closes the stay, sets housekeeping to dirty and creates exactly one cleaning
@@ -53,41 +58,25 @@ export async function checkIn(db: Db, ctx: TenantContext, propertyId: string, ra
   if (expectedCheckoutAt.getTime() <= now.getTime()) {
     throw new z.ZodError([{ code: "custom", path: ["checkoutDate"], message: "Checkout must be in the future", input: input.checkoutDate }]);
   }
+  const today = localDate(now, property.timezone);
   try {
     return await db.transaction(async (tx) => {
+      // Lock order everywhere: reservation → category → room.
+      const category = await lockCategory(tx, ctx, property.id, await roomCategoryId(tx, ctx, property.id, input.roomId));
       const room = await lockRoom(tx, ctx, property.id, input.roomId);
       const readiness = roomReadiness(room);
       if (readiness !== "ready") {
         throw conflict(`Room ${room.roomCode} can't be allocated: ${READINESS_LABEL[readiness].toLowerCase()}.`);
       }
+      if (room.categoryId !== category.id) throw conflict("This room was just changed. Please try again.");
+      // A walk-in must not take a room promised to a booking, nor the last room of a sold-out type.
+      await assertRoomFree(tx, ctx, property.id, room, today, input.checkoutDate, today, property.timezone, { ignoreStays: true });
+      await assertCapacity(tx, ctx, property.id, category, today, input.checkoutDate, today, property.timezone);
       const [guest] = await tx
         .insert(guests)
         .values({ tenantId: ctx.tenantId, name: input.guestName, phone: input.phone, email: input.email })
         .returning({ id: guests.id });
-      const [stay] = await tx
-        .insert(stays)
-        .values({
-          tenantId: ctx.tenantId,
-          propertyId: property.id,
-          roomId: room.id,
-          guestId: guest.id,
-          adults: input.adults,
-          checkInAt: now,
-          expectedCheckoutAt,
-          notes: input.notes,
-          checkedInByUserId: ctx.userId,
-        })
-        .returning();
-      await writeAudit(tx, {
-        tenantId: ctx.tenantId,
-        actorUserId: ctx.userId,
-        actorType: "user",
-        action: "stay.checked_in",
-        entityType: "stay",
-        entityId: stay.id,
-        metadata: { propertyId: property.id, roomCode: room.roomCode },
-      });
-      return stay;
+      return insertStay(tx, ctx, property.id, room, { guestId: guest.id, adults: input.adults, expectedCheckoutAt, notes: input.notes, now });
     });
   } catch (err) {
     if (isUniqueViolation(err)) throw conflict("This room was just allocated to someone else.");
@@ -95,7 +84,68 @@ export async function checkIn(db: Db, ctx: TenantContext, propertyId: string, ra
   }
 }
 
-export async function checkOut(db: Db, ctx: TenantContext, propertyId: string, stayId: string, raw: { note?: string } = {}) {
+/** Category of a live room (read before taking locks so the category can be locked first). */
+export async function roomCategoryId(tx: Db, ctx: TenantContext, propertyId: string, roomId: string) {
+  const id = z.uuid().safeParse(roomId);
+  if (!id.success) throw notFound("Room not found.");
+  const [row] = await tx
+    .select({ categoryId: rooms.categoryId })
+    .from(rooms)
+    .where(and(eq(rooms.id, id.data), eq(rooms.propertyId, propertyId), eq(rooms.tenantId, ctx.tenantId), isNull(rooms.archivedAt)));
+  if (!row) throw notFound("Room not found.");
+  return row.categoryId;
+}
+
+/** Inserts a checked-in stay for a locked, ready room and audits it. */
+export async function insertStay(
+  tx: Db,
+  ctx: TenantContext,
+  propertyId: string,
+  room: { id: string; roomCode: string },
+  v: { guestId: string; adults: number; expectedCheckoutAt: Date; notes: string | null; now: Date; reservationCode?: string },
+) {
+  const [stay] = await tx
+    .insert(stays)
+    .values({
+      tenantId: ctx.tenantId,
+      propertyId,
+      roomId: room.id,
+      guestId: v.guestId,
+      adults: v.adults,
+      checkInAt: v.now,
+      expectedCheckoutAt: v.expectedCheckoutAt,
+      notes: v.notes,
+      checkedInByUserId: ctx.userId,
+    })
+    .returning();
+  await writeAudit(tx, {
+    tenantId: ctx.tenantId,
+    actorUserId: ctx.userId,
+    actorType: "user",
+    action: "stay.checked_in",
+    entityType: "stay",
+    entityId: stay.id,
+    metadata: { propertyId, roomCode: room.roomCode, ...(v.reservationCode ? { reservationCode: v.reservationCode } : {}) },
+  });
+  await enqueueWebhookEvent(tx, ctx.tenantId, "stay.checked_in", {
+    stayId: stay.id,
+    propertyId,
+    roomId: room.id,
+    roomCode: room.roomCode,
+    adults: stay.adults,
+    expectedCheckoutAt: stay.expectedCheckoutAt.toISOString(),
+    reservationCode: v.reservationCode ?? null,
+  });
+  return stay;
+}
+
+export async function checkOut(
+  db: Db,
+  ctx: TenantContext,
+  propertyId: string,
+  stayId: string,
+  raw: { note?: string; allowBalance?: string | boolean } = {},
+) {
   const property = await requireProperty(db, ctx, propertyId, "stay.check_out", { write: true });
   const note = optionalText(300).parse(raw.note);
   const id = z.uuid().safeParse(stayId);
@@ -109,6 +159,12 @@ export async function checkOut(db: Db, ctx: TenantContext, propertyId: string, s
     if (!stay) throw notFound("Stay not found.");
     // A double tap or a second receptionist: the first wins, the second gets a clear answer.
     if (stay.status !== "checked_in") throw conflict("This guest has already checked out.");
+    // Phase 9: an unpaid bill needs an explicit decision (settle first, or leave it open).
+    const balance = (await stayBalances(tx, ctx.tenantId, [stay.id])).get(stay.id) ?? 0;
+    const allowBalance = raw.allowBalance === true || raw.allowBalance === "on" || raw.allowBalance === "true";
+    if (balance > 0 && !allowBalance) {
+      throw conflict(`Balance due: ${formatMoney(balance, property.currency)}. Record the payment first, or tick "Check out with balance due".`);
+    }
     const room = await lockRoom(tx, ctx, property.id, stay.roomId);
     const now = new Date();
     await tx
@@ -117,6 +173,10 @@ export async function checkOut(db: Db, ctx: TenantContext, propertyId: string, s
       .where(eq(stays.id, stay.id));
     await setHousekeepingStatus(tx, ctx, room, "dirty", "Guest checked out");
     const task = await ensureTask(tx, ctx, room, "cleaning", "checkout", { stayId: stay.id });
+    await tx
+      .update(reservations)
+      .set({ status: "completed" })
+      .where(and(eq(reservations.tenantId, ctx.tenantId), eq(reservations.stayId, stay.id), eq(reservations.status, "checked_in")));
     await writeAudit(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,
@@ -124,7 +184,15 @@ export async function checkOut(db: Db, ctx: TenantContext, propertyId: string, s
       action: "stay.checked_out",
       entityType: "stay",
       entityId: stay.id,
-      metadata: { propertyId: property.id, roomCode: room.roomCode, cleaningTaskId: task.id },
+      metadata: { propertyId: property.id, roomCode: room.roomCode, cleaningTaskId: task.id, ...(balance > 0 ? { balanceDueMinor: balance } : {}) },
+    });
+    await enqueueWebhookEvent(tx, ctx.tenantId, "stay.checked_out", {
+      stayId: stay.id,
+      propertyId: property.id,
+      roomId: room.id,
+      roomCode: room.roomCode,
+      checkedOutAt: now.toISOString(),
+      balanceDueMinor: balance,
     });
     return { stayId: stay.id, cleaningTaskId: task.id };
   });

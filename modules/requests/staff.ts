@@ -3,7 +3,10 @@ import { z } from "zod";
 import type { Db } from "@/lib/db/types";
 import {
   departments,
+  folioCharges,
+  properties,
   requestAssignments,
+  requestItems,
   requestStatusHistory,
   serviceRequests,
   tenantMemberships,
@@ -17,6 +20,8 @@ import { departmentScope, grantDepartments, inDepartmentScope, isEmptyScope } fr
 import { optionalText } from "@/lib/validation/common";
 import { writeAudit } from "@/modules/audit/service";
 import { enqueueRequestEvent } from "@/modules/realtime/outbox";
+import { postOrderCharge } from "@/modules/ordering/folio";
+import { enqueueWebhookEvent } from "@/modules/integrations/webhooks";
 import { loadTenantContext } from "@/modules/tenants/context";
 import { ACTIONS, ACTIVE_STATUSES, canTransition, REASON_REQUIRED, type StaffAction } from "./state";
 
@@ -80,6 +85,12 @@ export async function listInbox(db: Db, ctx: TenantContext, raw: InboxFilter = {
       priority: serviceRequests.priority,
       quantity: serviceRequests.quantity,
       option: serviceRequests.option,
+      kind: serviceRequests.kind,
+      scheduledFor: serviceRequests.scheduledFor,
+      timezone: properties.timezone,
+      totalMinor: serviceRequests.totalMinor,
+      currency: serviceRequests.currency,
+      paymentMethod: serviceRequests.paymentMethod,
       guestNote: serviceRequests.guestNote,
       targetMinutes: serviceRequests.targetMinutes,
       escalatedAt: serviceRequests.escalatedAt,
@@ -90,6 +101,7 @@ export async function listInbox(db: Db, ctx: TenantContext, raw: InboxFilter = {
     })
     .from(serviceRequests)
     .innerJoin(departments, eq(departments.id, serviceRequests.departmentId))
+    .innerJoin(properties, eq(properties.id, serviceRequests.propertyId))
     .leftJoin(assignee, eq(assignee.id, serviceRequests.assignedUserId))
     .where(
       and(
@@ -155,7 +167,7 @@ async function loadScoped(db: Db, ctx: TenantContext, requestId: string, permiss
 
 export async function getRequestForStaff(db: Db, ctx: TenantContext, requestId: string) {
   const { r, departmentKey } = await loadScoped(db, ctx, requestId, "request.view");
-  const [history, [assigned]] = await Promise.all([
+  const [history, [assigned], items] = await Promise.all([
     db
       .select({
         id: requestStatusHistory.id,
@@ -173,13 +185,18 @@ export async function getRequestForStaff(db: Db, ctx: TenantContext, requestId: 
     r.assignedUserId
       ? db.select({ name: users.name }).from(users).where(eq(users.id, r.assignedUserId))
       : Promise.resolve([] as { name: string }[]),
+    db
+      .select({ name: requestItems.name, quantity: requestItems.quantity, unitPriceMinor: requestItems.unitPriceMinor, lineTotalMinor: requestItems.lineTotalMinor })
+      .from(requestItems)
+      .where(and(eq(requestItems.tenantId, ctx.tenantId), eq(requestItems.requestId, r.id)))
+      .orderBy(asc(requestItems.name)),
   ]);
   // Never expose guest token material to staff screens either.
   const { guestTokenHash: _h, guestTokenCiphertext: _c, idempotencyKey: _k, ...safe } = r;
   void _h;
   void _c;
   void _k;
-  return { request: { ...safe, departmentKey, assigneeName: assigned?.name ?? null }, history };
+  return { request: { ...safe, departmentKey, assigneeName: assigned?.name ?? null }, history, items };
 }
 
 export const transitionSchema = z.object({
@@ -245,6 +262,26 @@ export async function transitionRequest(
       requestId: r.id,
       type: "service_request.updated",
     });
+    // Phase 9: a room-charged order posts to the guest bill once, when delivered; a cancelled
+    // order's charge (if it was completed and reopened) is voided.
+    if (spec.to === "completed") {
+      await postOrderCharge(tx, r, ctx.userId);
+      await enqueueWebhookEvent(tx, ctx.tenantId, "request.completed", {
+        requestId: r.id,
+        propertyId: r.propertyId,
+        roomCode: r.roomCode,
+        service: r.serviceName,
+        totalMinor: r.totalMinor,
+        currency: r.currency,
+        paymentMethod: r.paymentMethod,
+      });
+    }
+    if (action === "cancel") {
+      await tx
+        .update(folioCharges)
+        .set({ voidedAt: now, voidedByUserId: ctx.userId, voidReason: "Order cancelled" })
+        .where(and(eq(folioCharges.tenantId, ctx.tenantId), eq(folioCharges.requestId, r.id), isNull(folioCharges.voidedAt)));
+    }
     if (action === "cancel" || action === "reopen") {
       await writeAudit(tx, {
         tenantId: ctx.tenantId,

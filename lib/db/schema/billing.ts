@@ -11,7 +11,8 @@ export interface Entitlements {
   maxRooms: number;
   maxProperties: number;
   maxStaffSeats: number;
-  modules: { reports: boolean };
+  /** integrations (Phase 9): API keys, webhooks, POS postings. Missing = false. */
+  modules: { reports: boolean; integrations?: boolean };
 }
 
 export const plans = pgTable("plans", {

@@ -51,6 +51,11 @@ export const tenantMemberships = pgTable(
     notifySound: boolean("notify_sound").notNull().default(true),
     /** "all" = alert for every new request in scope; "mine" = only requests assigned to me. */
     notifyScope: text("notify_scope").notNull().default("all"),
+    /** Phase 9: phone push notifications to this member's registered devices. */
+    notifyPush: boolean("notify_push").notNull().default(true),
+    /** Phase 9: work mobile (E.164) for escalation alerts, and the channel: none | sms | whatsapp. */
+    alertPhone: text("alert_phone"),
+    escalationChannel: text("escalation_channel").notNull().default("none"),
     ...timestamps,
   },
   (t) => [

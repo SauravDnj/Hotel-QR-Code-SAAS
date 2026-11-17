@@ -1,6 +1,7 @@
 import { isNull, sql } from "drizzle-orm";
 import {
   boolean,
+  char,
   foreignKey,
   index,
   integer,
@@ -12,9 +13,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { requestPriority, requestStatus, serviceNoteMode } from "./enums";
+import { requestPriority, requestStatus, serviceKind, serviceNoteMode } from "./enums";
 import { roomQrCodes } from "./guest";
 import { users } from "./identity";
+import { stays } from "./stays";
 import { departments, rooms } from "./structure";
 import { properties, tenants, timestamps } from "./tenancy";
 
@@ -35,6 +37,9 @@ export const serviceItems = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     icon: text("icon").notNull().default("bell"),
+    kind: serviceKind("kind").notNull().default("request"),
+    /** Menu services: guests in a checked-in room may charge the order to their room bill. */
+    allowRoomCharge: boolean("allow_room_charge").notNull().default(true),
     enabled: boolean("enabled").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     /** 0 = no quantity field; otherwise the maximum a guest may choose. */
@@ -99,6 +104,17 @@ export const serviceRequests = pgTable(
     escalatedAt: timestamp("escalated_at", { withTimezone: true }),
     quantity: integer("quantity"),
     option: text("option"),
+    /** Snapshot of the service kind (Phase 9). */
+    kind: serviceKind("kind").notNull().default("request"),
+    /** Booking services: the time the guest asked for. */
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+    /** Menu orders: total of request_items in minor units, currency and how the guest pays. */
+    totalMinor: integer("total_minor"),
+    currency: char("currency", { length: 3 }),
+    /** room = post to the stay's folio on completion; on_delivery = settled when delivered. */
+    paymentMethod: text("payment_method"),
+    /** Stay in the room when the guest ordered (room charges post to this folio). */
+    stayId: uuid("stay_id"),
     guestNote: text("guest_note"),
     /** Message shown to the guest; separate from internal staff notes in the history. */
     guestMessage: text("guest_message"),
@@ -136,6 +152,11 @@ export const serviceRequests = pgTable(
       name: "service_requests_department_scope_fk",
       columns: [t.departmentId, t.propertyId, t.tenantId],
       foreignColumns: [departments.id, departments.propertyId, departments.tenantId],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "service_requests_stay_same_tenant_fk",
+      columns: [t.stayId, t.tenantId],
+      foreignColumns: [stays.id, stays.tenantId],
     }).onDelete("restrict"),
     unique("service_requests_idempotency_unique").on(t.tenantId, t.idempotencyKey),
     uniqueIndex("service_requests_guest_token_unique").on(t.guestTokenHash),

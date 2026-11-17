@@ -73,6 +73,9 @@ export default async function PlansPage() {
                   <label className="flex items-center gap-2">
                     <input type="checkbox" name="reports" defaultChecked={p.entitlements.modules.reports} className="size-4" /> Reports
                   </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="integrations" defaultChecked={p.entitlements.modules.integrations ?? false} className="size-4" /> Integrations (API, webhooks)
+                  </label>
                   <label className="flex items-center gap-2">
                     <input type="checkbox" name="active" defaultChecked={p.active} className="size-4" /> Offered to hotels
                   </label>

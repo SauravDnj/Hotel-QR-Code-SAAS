@@ -1,8 +1,9 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db/types";
-import { departments, serviceItems } from "@/lib/db/schema";
-import { requestPriority, serviceNoteMode } from "@/lib/db/schema/enums";
+import { departments, menuItems, serviceItems } from "@/lib/db/schema";
+import { minorDigits } from "@/lib/money";
+import { requestPriority, serviceKind, serviceNoteMode } from "@/lib/db/schema/enums";
 import { notFound } from "@/lib/errors";
 import type { TenantContext } from "@/lib/permissions/authorize";
 import { nameSchema, optionalText } from "@/lib/validation/common";
@@ -22,6 +23,9 @@ export const SERVICE_ICONS = [
   "utensils",
   "shirt",
   "shield",
+  "flower",
+  "car",
+  "alarm-clock",
 ] as const;
 
 type DefaultService = {
@@ -37,6 +41,11 @@ type DefaultService = {
   targetMinutes: number;
   ackMessage: string;
   enabled?: boolean;
+  kind?: "request" | "menu" | "booking";
+  availableFrom?: string;
+  availableTo?: string;
+  /** Sample menu (price in major units); hotels review prices before enabling. */
+  menu?: { section?: string; name: string; price: number }[];
 };
 
 /** MVP services from Zprompt/04_SERVICE_REQUESTS.md. */
@@ -94,6 +103,88 @@ export const DEFAULT_SERVICES: DefaultService[] = [
   },
 ];
 
+/**
+ * Phase 9 module pack: dining, laundry, spa, transport and wake-up. Added HIDDEN, with sample
+ * menus, so a hotel reviews names and prices before guests see them.
+ */
+export const MODULE_SERVICES: DefaultService[] = [
+  {
+    key: "dining",
+    name: "In-room dining",
+    description: "Order food and drinks to your room.",
+    department: "room_service",
+    icon: "utensils",
+    kind: "menu",
+    targetMinutes: 30,
+    ackMessage: "The kitchen has your order.",
+    enabled: false,
+    menu: [
+      { section: "Breakfast", name: "Masala omelette", price: 250 },
+      { section: "Breakfast", name: "Idli sambar", price: 180 },
+      { section: "Mains", name: "Veg thali", price: 450 },
+      { section: "Mains", name: "Chicken biryani", price: 520 },
+      { section: "Drinks", name: "Masala chai", price: 90 },
+      { section: "Drinks", name: "Fresh lime soda", price: 120 },
+    ],
+  },
+  {
+    key: "laundry",
+    name: "Laundry",
+    description: "Washing and ironing, back within 24 hours.",
+    department: "housekeeping",
+    icon: "shirt",
+    kind: "menu",
+    targetMinutes: 60,
+    ackMessage: "Housekeeping will collect your laundry.",
+    enabled: false,
+    menu: [
+      { section: "Wash & iron", name: "Shirt", price: 80 },
+      { section: "Wash & iron", name: "Trousers", price: 90 },
+      { section: "Wash & iron", name: "Dress", price: 150 },
+      { section: "Dry clean", name: "Suit (2 pieces)", price: 450 },
+      { section: "Iron only", name: "Any garment", price: 40 },
+    ],
+  },
+  {
+    key: "spa",
+    name: "Spa & wellness",
+    description: "Book a treatment.",
+    department: "reception",
+    icon: "flower",
+    kind: "booking",
+    options: ["Full body massage (60 min)", "Head & shoulder massage (30 min)", "Foot reflexology (45 min)"],
+    availableFrom: "09:00",
+    availableTo: "21:00",
+    targetMinutes: 30,
+    ackMessage: "We'll confirm your treatment time shortly.",
+    enabled: false,
+  },
+  {
+    key: "transport",
+    name: "Taxi & airport transfer",
+    description: "Book a car for a time that suits you.",
+    department: "reception",
+    icon: "car",
+    kind: "booking",
+    options: ["Airport drop", "Airport pickup", "City taxi"],
+    targetMinutes: 15,
+    ackMessage: "Reception will confirm your car.",
+    enabled: false,
+  },
+  {
+    key: "wakeup",
+    name: "Wake-up call",
+    description: "We'll call your room at the time you choose.",
+    department: "reception",
+    icon: "alarm-clock",
+    kind: "booking",
+    noteMode: "none",
+    targetMinutes: 60,
+    ackMessage: "Your wake-up call is noted.",
+    enabled: false,
+  },
+];
+
 const time = z
   .string()
   .trim()
@@ -125,6 +216,8 @@ export const serviceInputSchema = z
       .refine((list) => list.length <= 12, "Up to 12 choices")
       .refine((list) => list.every((s) => s.length <= 40), "Each choice up to 40 characters"),
     noteMode: z.enum(serviceNoteMode.enumValues).default("optional"),
+    kind: z.enum(serviceKind.enumValues).default("request").catch("request"),
+    allowRoomCharge: checkbox,
     availableFrom: time,
     availableTo: time,
     ackMessage: optionalText(200),
@@ -172,6 +265,15 @@ export async function listServices(db: Db, ctx: TenantContext, propertyId: strin
 
 /** Adds the standard departments and services that are missing. Idempotent. */
 export async function createDefaultServices(db: Db, ctx: TenantContext, propertyId: string) {
+  return addServicePack(db, ctx, propertyId, DEFAULT_SERVICES, "service.defaults_created");
+}
+
+/** Adds the dining/laundry/spa/transport/wake-up pack (hidden, with sample menus). Idempotent. */
+export async function createModuleServices(db: Db, ctx: TenantContext, propertyId: string) {
+  return addServicePack(db, ctx, propertyId, MODULE_SERVICES, "service.modules_created");
+}
+
+async function addServicePack(db: Db, ctx: TenantContext, propertyId: string, pack: DefaultService[], auditAction: string) {
   const property = await requireProperty(db, ctx, propertyId, "service.manage", { write: true });
   return db.transaction(async (tx) => {
     await tx
@@ -184,7 +286,7 @@ export async function createDefaultServices(db: Db, ctx: TenantContext, property
       .where(and(eq(departments.tenantId, ctx.tenantId), eq(departments.propertyId, property.id)));
     const byKey = new Map(depts.map((d) => [d.key, d.id]));
     // A department renamed to clash with a default name keeps its own key; skip those services.
-    const services = DEFAULT_SERVICES.filter((s) => byKey.has(s.department));
+    const services = pack.filter((s) => byKey.has(s.department));
     if (services.length === 0) return { count: 0 };
     const created = await tx
       .insert(serviceItems)
@@ -198,7 +300,10 @@ export async function createDefaultServices(db: Db, ctx: TenantContext, property
           description: s.description,
           icon: s.icon,
           enabled: s.enabled ?? true,
-          sortOrder: (i + 1) * 10,
+          sortOrder: (i + 1) * 10 + (pack === DEFAULT_SERVICES ? 0 : 100),
+          kind: s.kind ?? "request",
+          availableFrom: s.availableFrom ?? null,
+          availableTo: s.availableTo ?? null,
           maxQuantity: s.maxQuantity ?? 0,
           options: s.options ?? [],
           noteMode: s.noteMode ?? "optional",
@@ -208,12 +313,28 @@ export async function createDefaultServices(db: Db, ctx: TenantContext, property
         })),
       )
       .onConflictDoNothing()
-      .returning({ id: serviceItems.id });
+      .returning({ id: serviceItems.id, key: serviceItems.key });
+    const scale = 10 ** minorDigits(property.currency);
+    for (const row of created) {
+      const menu = pack.find((s) => s.key === row.key)?.menu ?? [];
+      if (menu.length === 0) continue;
+      await tx.insert(menuItems).values(
+        menu.map((m, i) => ({
+          tenantId: ctx.tenantId,
+          propertyId: property.id,
+          serviceItemId: row.id,
+          section: m.section ?? null,
+          name: m.name,
+          priceMinor: Math.round(m.price * scale),
+          sortOrder: (i + 1) * 10,
+        })),
+      );
+    }
     await writeAudit(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,
       actorType: "user",
-      action: "service.defaults_created",
+      action: auditAction,
       entityType: "property",
       entityId: property.id,
       metadata: { count: created.length },
@@ -328,6 +449,8 @@ export async function listGuestServices(db: Db, scope: { tenantId: string; prope
       name: serviceItems.name,
       description: serviceItems.description,
       icon: serviceItems.icon,
+      kind: serviceItems.kind,
+      allowRoomCharge: serviceItems.allowRoomCharge,
       maxQuantity: serviceItems.maxQuantity,
       options: serviceItems.options,
       noteMode: serviceItems.noteMode,

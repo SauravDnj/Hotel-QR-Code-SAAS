@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import type { Db } from "@/lib/db/types";
 import { requestStatusHistory, serviceRequests } from "@/lib/db/schema";
 import { enqueueRequestEvent } from "@/modules/realtime/outbox";
+import { enqueueNotification } from "@/modules/notifications/service";
 
 /**
  * Escalation (REALTIME_NOTIFICATIONS.md "Escalation"): a request still `new` after the
@@ -43,6 +44,13 @@ export async function escalateOverdue(db: Db, now: Date = new Date(), limit = 10
         departmentId: r.department_id,
         requestId: r.id,
         type: "service_request.updated",
+      });
+      await enqueueNotification(tx, {
+        tenantId: r.tenant_id,
+        propertyId: r.property_id,
+        departmentId: r.department_id,
+        requestId: r.id,
+        kind: "request_escalated",
       });
     }
     return rows.length;

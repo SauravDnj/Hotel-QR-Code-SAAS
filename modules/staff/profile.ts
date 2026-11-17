@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db/types";
-import { tenantMemberships, users } from "@/lib/db/schema";
+import { tenantMemberships, tenants, users } from "@/lib/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { AppError, notFound } from "@/lib/errors";
 import type { TenantContext } from "@/lib/permissions/authorize";
@@ -17,12 +17,21 @@ export async function getProfile(db: Db, ctx: TenantContext) {
       email: users.email,
       notifySound: tenantMemberships.notifySound,
       notifyScope: tenantMemberships.notifyScope,
+      notifyPush: tenantMemberships.notifyPush,
+      alertPhone: tenantMemberships.alertPhone,
+      escalationChannel: tenantMemberships.escalationChannel,
+      timezone: tenants.timezone,
     })
     .from(tenantMemberships)
     .innerJoin(users, eq(users.id, tenantMemberships.userId))
+    .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
     .where(and(eq(tenantMemberships.id, ctx.membershipId), eq(tenantMemberships.tenantId, ctx.tenantId)));
   if (!row) throw notFound();
-  return { ...row, notifyScope: row.notifyScope === "mine" ? ("mine" as const) : ("all" as const) };
+  return {
+    ...row,
+    notifyScope: row.notifyScope === "mine" ? ("mine" as const) : ("all" as const),
+    escalationChannel: (["sms", "whatsapp"].includes(row.escalationChannel) ? row.escalationChannel : "none") as "none" | "sms" | "whatsapp",
+  };
 }
 
 export async function updateName(db: Db, ctx: TenantContext, raw: { name?: string }) {
@@ -36,9 +45,22 @@ export const prefsSchema = z.object({
     .optional()
     .transform((v) => v === true || v === "on"),
   notifyScope: z.enum(["all", "mine"]).catch("all"),
-});
+  notifyPush: z
+    .union([z.literal("on"), z.literal(""), z.boolean()])
+    .optional()
+    .transform((v) => v === true || v === "on"),
+  // Escalation alerts by SMS / WhatsApp (Phase 9): a work mobile in international format.
+  alertPhone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s()-]/g, ""))
+    .refine((v) => v === "" || /^\+[1-9]\d{6,14}$/.test(v), "Use international format, e.g. +919876543210")
+    .optional()
+    .transform((v) => (v ? v : null)),
+  escalationChannel: z.enum(["none", "sms", "whatsapp"]).catch("none"),
+}).refine((v) => v.escalationChannel === "none" || v.alertPhone, { path: ["alertPhone"], message: "Add a mobile number for SMS or WhatsApp alerts" });
 
-export async function updateNotificationPrefs(db: Db, ctx: TenantContext, raw: z.input<typeof prefsSchema>) {
+export async function updateNotificationPrefs(db: Db, ctx: TenantContext, raw: Partial<z.input<typeof prefsSchema>>) {
   const input = prefsSchema.parse(raw);
   await db
     .update(tenantMemberships)

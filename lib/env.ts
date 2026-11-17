@@ -27,6 +27,20 @@ const schema = z.object({
   RAZORPAY_KEY_ID: z.string().regex(/^rzp_(test|live)_[A-Za-z0-9]+$/, "RAZORPAY_KEY_ID must look like rzp_test_…").optional(),
   RAZORPAY_KEY_SECRET: z.string().min(10).optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(8).optional(),
+  /** Web Push VAPID keys (Phase 9): staff phone notifications. Generate with `npx web-push generate-vapid-keys`. */
+  VAPID_PUBLIC_KEY: z.string().regex(/^[A-Za-z0-9_-]{80,100}$/, "VAPID_PUBLIC_KEY must be a base64url P-256 public key").optional(),
+  VAPID_PRIVATE_KEY: z.string().regex(/^[A-Za-z0-9_-]{40,50}$/, "VAPID_PRIVATE_KEY must be a base64url P-256 private key").optional(),
+  /** Contact for push services, "mailto:…" or an https URL. */
+  VAPID_SUBJECT: z.string().regex(/^(mailto:|https:\/\/)/, "VAPID_SUBJECT must start with mailto: or https://").optional(),
+  /** Twilio (Phase 9): SMS / WhatsApp escalation alerts. Optional. */
+  TWILIO_ACCOUNT_SID: z.string().regex(/^AC[0-9a-f]{32}$/, "TWILIO_ACCOUNT_SID must look like AC…").optional(),
+  TWILIO_AUTH_TOKEN: z.string().min(16).optional(),
+  /** E.164 sender for SMS, e.g. +14155550123 (or a Messaging Service SID MG…). */
+  TWILIO_SMS_FROM: z.string().regex(/^(\+[1-9]\d{6,14}|MG[0-9a-f]{32})$/).optional(),
+  /** E.164 WhatsApp-enabled sender. */
+  TWILIO_WHATSAPP_FROM: z.string().regex(/^\+[1-9]\d{6,14}$/).optional(),
+  /** Approved WhatsApp template (Content SID HX…) with variables {{1}} = room, {{2}} = service, {{3}} = minutes. */
+  TWILIO_WHATSAPP_CONTENT_SID: z.string().regex(/^HX[0-9a-f]{32}$/).optional(),
 });
 
 export type ServerEnv = z.infer<typeof schema>;

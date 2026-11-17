@@ -10,6 +10,7 @@ import { loadOr404 } from "@/lib/page-errors";
 import { canWrite } from "@/lib/permissions/authorize";
 import { departmentScope, inDepartmentScope } from "@/lib/permissions/departments";
 import { formatDateTime } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 import { getProperty } from "@/modules/properties/service";
 import { allowedActions, getRequestForStaff, listAssignableStaff } from "@/modules/requests/staff";
 import { ACTIONS, REASON_REQUIRED, STAFF_STATUS_LABEL } from "@/modules/requests/state";
@@ -22,7 +23,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const { requestId } = await params;
   const ctx = await requireTenantContext();
   const db = getDb();
-  const { request: r, history } = await loadOr404(() => getRequestForStaff(db, ctx, requestId));
+  const { request: r, history, items } = await loadOr404(() => getRequestForStaff(db, ctx, requestId));
   const property = await getProperty(db, ctx, r.propertyId).catch(() => null);
   const tz = property?.timezone ?? "UTC";
   const actions = allowedActions(ctx, r);
@@ -56,7 +57,34 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             <dt className="text-muted-foreground">Department</dt>
             <dd>{r.departmentName}</dd>
           </div>
-          {r.quantity !== null && (
+          {r.scheduledFor && (
+            <div>
+              <dt className="text-muted-foreground">Requested for</dt>
+              <dd className="font-semibold">{formatDateTime(r.scheduledFor, tz)}</dd>
+            </div>
+          )}
+          {items.length > 0 && r.currency && (
+            <div className="sm:col-span-2">
+              <dt className="text-muted-foreground">Order</dt>
+              <dd>
+                <ul className="mt-1 space-y-0.5" aria-label="Order lines">
+                  {items.map((l) => (
+                    <li key={l.name} className="flex justify-between gap-4">
+                      <span>
+                        {l.quantity} × {l.name}
+                      </span>
+                      <span>{formatMoney(l.lineTotalMinor, r.currency!)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 flex justify-between gap-4 border-t border-border pt-1 font-semibold">
+                  <span>Total · {r.paymentMethod === "room" ? "charge to room on completion" : "collect on delivery"}</span>
+                  <span>{formatMoney(r.totalMinor ?? 0, r.currency)}</span>
+                </p>
+              </dd>
+            </div>
+          )}
+          {r.quantity !== null && items.length === 0 && (
             <div>
               <dt className="text-muted-foreground">Quantity</dt>
               <dd>{r.quantity}</dd>

@@ -7,7 +7,8 @@ import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { requireTenantContext } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { propertyScope } from "@/lib/permissions/authorize";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 import { allowedActions, inboxMarker, listInbox } from "@/modules/requests/staff";
 import { ACTIONS, REASON_REQUIRED, STAFF_STATUS_LABEL } from "@/modules/requests/state";
 import { transitionAction } from "./actions";
@@ -96,7 +97,18 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
                       {r.escalatedAt && r.status === "new" ? <Badge tone="danger">Escalated</Badge> : overdue && <Badge tone="danger">Overdue</Badge>}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {[r.quantity !== null ? `× ${r.quantity}` : null, r.option, r.departmentName].filter(Boolean).join(" · ")}
+                      {[
+                        r.totalMinor !== null && r.currency
+                          ? `${r.quantity} item${r.quantity === 1 ? "" : "s"} · ${formatMoney(r.totalMinor, r.currency)}${r.paymentMethod === "room" ? " to room" : " on delivery"}`
+                          : r.quantity !== null
+                            ? `× ${r.quantity}`
+                            : null,
+                        r.scheduledFor ? `for ${formatDateTime(r.scheduledFor, r.timezone)}` : null,
+                        r.option,
+                        r.departmentName,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                       {" · "}
                       {ageLabel(minutes)}
                       {r.assigneeName && <> · {r.assigneeName}</>}

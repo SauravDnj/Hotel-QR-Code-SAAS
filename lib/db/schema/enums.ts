@@ -64,6 +64,13 @@ export const housekeepingTaskStatus = pgEnum("housekeeping_task_status", ["open"
 // Billing lifecycle (SAAS_BILLING.md). Mirrors tenant_status values so access can follow billing.
 export const subscriptionStatus = pgEnum("subscription_status", ["trialing", "active", "past_due", "suspended", "cancelled"]);
 
+// Phase 9: reservations. checked_in links a stay; completed after that stay checks out.
+export const reservationStatus = pgEnum("reservation_status", ["confirmed", "checked_in", "completed", "cancelled", "no_show"]);
+
+// Phase 9: what a guest service tile does. request = simple request (MVP); menu = priced items
+// with a cart (dining, laundry); booking = request for a chosen date/time (spa, taxi, wake-up).
+export const serviceKind = pgEnum("service_kind", ["request", "menu", "booking"]);
+
 export type TenantStatus = (typeof tenantStatus.enumValues)[number];
 export type RoomOperationalStatus = (typeof roomOperationalStatus.enumValues)[number];
 export type HousekeepingStatus = (typeof housekeepingStatus.enumValues)[number];
@@ -74,3 +81,5 @@ export type RequestPriority = (typeof requestPriority.enumValues)[number];
 export type StayStatus = (typeof stayStatus.enumValues)[number];
 export type HousekeepingTaskStatus = (typeof housekeepingTaskStatus.enumValues)[number];
 export type SubscriptionStatus = (typeof subscriptionStatus.enumValues)[number];
+export type ReservationStatus = (typeof reservationStatus.enumValues)[number];
+export type ServiceKind = (typeof serviceKind.enumValues)[number];

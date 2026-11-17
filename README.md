@@ -3,7 +3,7 @@
 Multi-tenant hotel guest-services and operations SaaS. Product and engineering docs are in
 [`hotel-saas-documentation/`](hotel-saas-documentation/README.md), which is the source of truth.
 
-**Current status:** Phases 0–8 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA, check-in/out & housekeeping, reports & billing, hardening & pilot readiness) of
+**Current status:** Phases 0–9 complete (foundation, SaaS & tenancy, hotel structure, QR codes & guest portal, service requests & realtime inbox, staff & RBAC & PWA, check-in/out & housekeeping, reports & billing, hardening & pilot readiness, expansion) of
 [`ROADMAP_AND_PHASES.md`](hotel-saas-documentation/07-delivery/ROADMAP_AND_PHASES.md).
 
 ## Stack
@@ -273,6 +273,42 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
   - `docs/RUNBOOK.md` (daily checks, incidents, recovery, deploy/rollback);
   - `docs/LAUNCH_CHECKLIST.md`;
   - `docs/PILOT_PLAN.md` (pilot test script and sign-off).
+
+## Expansion (Phase 9)
+
+- **Reservations & availability calendar** (`/reservations`):
+  - bookings by room type, with an optional assigned room;
+  - a 14-night room × night grid with free and unassigned counts;
+  - lists for arrivals, upcoming, in house and closed;
+  - check-in from a booking (same readiness rules as walk-ins), and checkout completes the booking.
+  - **Rules:** no room type is ever overbooked (per-type row lock; walk-ins count) and no assigned room
+    is double-booked (`modules/reservations/availability.ts`). Imports are idempotent on source +
+    external ref.
+- **Ordering & guest bills:**
+  - service **types**: Request, Menu (priced items with a cart: in-room dining, laundry) and Booking
+    (date/time: spa, taxi, wake-up);
+  - the server prices every order from `menu_items`;
+  - guests pay on delivery or **charge to the room** (checked-in rooms only). The charge posts to the
+    **folio** once, on completion, and is voided on cancel.
+  - Front desk → bill: manual charges and discounts, voids with a reason, payments
+    (cash/card/UPI/bank). Checkout warns when a balance is due.
+  - Services → "Add dining, laundry & spa" adds a hidden pack with sample menus to review.
+- **Notifications:**
+  - **Web Push** to staff phones (Profile → "Turn on notifications on this device"): new requests go to
+    the covering staff, escalations to supervisors.
+  - Optional **SMS/WhatsApp** escalation via Twilio, opt-in per supervisor with a work number.
+  - Jobs ride the outbox (retry, backoff); payloads carry room and service only.
+- **Multi-property analytics** (`/reports/portfolio`): occupancy, response times, on-time rate,
+  escalations, inspection pass rate, orders and bookings per property. Reports also show orders, bill
+  charges, payments and bookings.
+- **Integrations** (Hotel settings → Integrations; plan module `integrations`):
+  - scoped **API keys** and REST API `/api/v1` (rooms, availability, reservations, stays, POS folio
+    postings);
+  - **signed webhooks** for booking, stay and request events, with SSRF protection.
+  - See `docs/API.md`.
+- **Native apps:** not built. The roadmap allows them "only if PWA limitations justify them", and the PWA
+  now covers home-screen install, offline page and push notifications (iOS 16.4+ from the Home Screen),
+  so no gap justifies a native app yet.
 
 ## Security model (Phase 1)
 

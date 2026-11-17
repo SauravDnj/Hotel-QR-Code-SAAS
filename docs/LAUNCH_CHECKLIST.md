@@ -40,5 +40,12 @@ Status legend: ✅ done · ⏳ needs the owner · ➖ optional
 - ✅ Accessibility: axe WCAG 2.1 AA, 0 violations on all main screens.
 - ✅ Load smoke: 0 errors at 10 concurrent clients (`pnpm load:smoke`).
 
+## Phase 9 (expansion)
+- ✅ Migrations 0008–0011 (reservations, ordering & folio, notifications, integrations) applied.
+- ✅ Web Push VAPID keys set in Vercel (Production + Preview). Store them in the password manager.
+- ➖ Twilio for SMS/WhatsApp escalations (`TWILIO_*`). WhatsApp needs an approved template.
+- ⏳ Each hotel: review the hidden dining/laundry/spa services and their **prices** before showing them to guests.
+- ⏳ Decide which plans include Integrations (`/platform/plans`); share `docs/API.md` with integration partners.
+
 ## Pilot
 - ⏳ Follow `docs/PILOT_PLAN.md` with one hotel. Sign-off by the hotel and the platform owner.

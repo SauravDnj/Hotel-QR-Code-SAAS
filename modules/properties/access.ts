@@ -21,7 +21,7 @@ export async function requireProperty(
   const id = z.uuid().safeParse(propertyId);
   if (!id.success) throw notFound("Property not found.");
   const [property] = await db
-    .select({ id: properties.id, name: properties.name, timezone: properties.timezone })
+    .select({ id: properties.id, name: properties.name, timezone: properties.timezone, currency: properties.currency })
     .from(properties)
     .where(and(eq(properties.id, id.data), eq(properties.tenantId, ctx.tenantId)));
   if (!property) throw notFound("Property not found.");

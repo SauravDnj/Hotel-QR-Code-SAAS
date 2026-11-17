@@ -26,7 +26,7 @@ export const STARTER_PLANS: {
     name: "Starter",
     description: "Small hotels and guest houses.",
     priceMinor: 1999_00,
-    entitlements: { maxRooms: 25, maxProperties: 1, maxStaffSeats: 10, modules: { reports: false } },
+    entitlements: { maxRooms: 25, maxProperties: 1, maxStaffSeats: 10, modules: { reports: false, integrations: false } },
     sortOrder: 10,
   },
   {
@@ -34,7 +34,7 @@ export const STARTER_PLANS: {
     name: "Professional",
     description: "Mid-size hotels: more rooms, reports and escalation.",
     priceMinor: 5999_00,
-    entitlements: { maxRooms: 120, maxProperties: 3, maxStaffSeats: 60, modules: { reports: true } },
+    entitlements: { maxRooms: 120, maxProperties: 3, maxStaffSeats: 60, modules: { reports: true, integrations: true } },
     isDefault: true,
     sortOrder: 20,
   },
@@ -43,7 +43,7 @@ export const STARTER_PLANS: {
     name: "Enterprise",
     description: "Hotel groups and resorts.",
     priceMinor: 19999_00,
-    entitlements: { maxRooms: 1000, maxProperties: 25, maxStaffSeats: 500, modules: { reports: true } },
+    entitlements: { maxRooms: 1000, maxProperties: 25, maxStaffSeats: 500, modules: { reports: true, integrations: true } },
     sortOrder: 30,
   },
 ];
@@ -82,6 +82,10 @@ export const planUpdateSchema = z.object({
     .union([z.literal("on"), z.literal(""), z.boolean()])
     .optional()
     .transform((v) => v === true || v === "on"),
+  integrations: z
+    .union([z.literal("on"), z.literal(""), z.boolean()])
+    .optional()
+    .transform((v) => v === true || v === "on"),
   trialDays: limit(365),
   active: z
     .union([z.literal("on"), z.literal(""), z.boolean()])
@@ -108,7 +112,7 @@ export async function updatePlan(db: Db, actor: PlatformActor, planId: string, r
           maxRooms: input.maxRooms,
           maxProperties: input.maxProperties,
           maxStaffSeats: input.maxStaffSeats,
-          modules: { reports: input.reports },
+          modules: { reports: input.reports, integrations: input.integrations },
         },
       })
       .where(eq(plans.id, id.data))

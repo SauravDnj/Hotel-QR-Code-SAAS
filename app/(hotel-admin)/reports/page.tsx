@@ -8,6 +8,7 @@ import { requireTenantContext } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { AppError } from "@/lib/errors";
 import { MAX_RANGE_DAYS, propertyReport } from "@/modules/reports/service";
+import { formatMoney } from "@/lib/money";
 import { PropertyPicker, propertiesFor } from "../property-picker";
 
 export const metadata: Metadata = { title: "Reports" };
@@ -61,6 +62,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </p>
       </div>
       <PropertyPicker base="/reports" props={props} selectedId={selected.id} />
+      {props.length > 1 && (
+        <Link href={`/reports/portfolio?from=${r.range.from}&to=${r.range.to}`} className="inline-block text-sm text-primary underline underline-offset-4">
+          Compare all properties →
+        </Link>
+      )}
       <form className="flex flex-wrap items-end gap-2" aria-label="Date range">
         <input type="hidden" name="property" value={selected.id} />
         <label className="flex flex-col gap-1 text-sm">
@@ -167,6 +173,29 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <Stat label="Rooms cleaned" value={r.housekeeping.cleanings} hint={`average ${mins(r.housekeeping.cleanAvg)}`} />
           <Stat label="Inspection pass rate" value={pct(r.housekeeping.passRate)} hint={`${r.housekeeping.inspectionsPassed} passed · ${r.housekeeping.inspectionsFailed} failed`} />
         </div>
+      </section>
+
+      <section aria-labelledby="com-h" className="space-y-3">
+        <h2 id="com-h" className="text-lg font-semibold">
+          Orders, bills and bookings
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Stat
+            label="Guest orders delivered"
+            value={formatMoney(r.commercial.orders.totalMinor, selected.currency)}
+            hint={`${r.commercial.orders.delivered} orders · ${formatMoney(r.commercial.orders.roomChargedMinor, selected.currency)} to rooms`}
+          />
+          <Stat label="Charged to guest bills" value={formatMoney(r.commercial.folio.chargedMinor, selected.currency)} />
+          <Stat label="Payments recorded" value={formatMoney(r.commercial.folio.paidMinor, selected.currency)} />
+          <Stat
+            label="Bookings made"
+            value={r.commercial.bookings.created}
+            hint={`${r.commercial.bookings.arrivals} arrivals · ${r.commercial.bookings.cancelled} cancelled · ${r.commercial.bookings.noShows} no-shows`}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Only money recorded in this app (guest orders, bill charges and payments). Room revenue from your PMS isn&apos;t included.
+        </p>
       </section>
 
       <section aria-labelledby="staff-h" className="grid gap-4 md:grid-cols-2">

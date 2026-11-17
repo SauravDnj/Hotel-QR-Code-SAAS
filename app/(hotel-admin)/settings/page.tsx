@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PermissionDenied } from "@/components/permission-denied";
 import { Card, PageHeader } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -39,6 +40,17 @@ export default async function SettingsPage() {
         <a href="/api/export" className={buttonVariants({ variant: "secondary" })} download>
           Download export
         </a>
+      </Card>
+      <Card className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Integrations</h2>
+          <p className="text-xs text-muted-foreground">
+            API keys and webhooks for your PMS, channel manager or POS system.
+          </p>
+        </div>
+        <Link href="/settings/integrations" className={buttonVariants({ variant: "secondary" })}>
+          Manage integrations
+        </Link>
       </Card>
     </>
   );

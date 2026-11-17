@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ActionForm, ConfirmButton } from "@/components/action-form";
 import { PermissionDenied } from "@/components/permission-denied";
 import { ServiceIcon } from "@/components/service-icon";
@@ -14,6 +15,7 @@ import { listServices, SERVICE_ICONS } from "@/modules/services/catalog";
 import {
   archiveServiceAction,
   createDefaultServicesAction,
+  createModuleServicesAction,
   createServiceAction,
   updateServiceAction,
 } from "./service-actions";
@@ -36,6 +38,8 @@ type Values = {
   targetMinutes?: number;
   escalate?: boolean;
   sortOrder?: number;
+  kind?: string;
+  allowRoomCharge?: boolean;
 };
 
 const label = "flex flex-col gap-1 text-sm";
@@ -64,6 +68,14 @@ function ServiceFields({ v, departments, idp }: { v: Values; departments: { id: 
       <label className={`${label} sm:col-span-2`}>
         Description shown to guests
         <Input name="description" id={`${idp}-desc`} maxLength={200} defaultValue={v.description ?? ""} />
+      </label>
+      <label className={label}>
+        Type
+        <Select name="kind" id={`${idp}-kind`} defaultValue={v.kind ?? "request"}>
+          <option value="request">Request (quantity / choices)</option>
+          <option value="menu">Menu with prices (dining, laundry)</option>
+          <option value="booking">Booking for a date and time (spa, taxi)</option>
+        </Select>
       </label>
       <label className={label}>
         Icon
@@ -129,6 +141,10 @@ function ServiceFields({ v, departments, idp }: { v: Values; departments: { id: 
         <input type="checkbox" name="escalate" defaultChecked={v.escalate ?? true} className="size-4" />
         Escalate to managers if not accepted within the target time
       </label>
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <input type="checkbox" name="allowRoomCharge" defaultChecked={v.allowRoomCharge ?? true} className="size-4" />
+        Menu: guests in a checked-in room may charge orders to their bill
+      </label>
     </div>
   );
 }
@@ -152,11 +168,18 @@ export default async function ServicesPage({ params }: { params: Promise<{ prope
           </p>
         </div>
         {manage && (
-          <ActionForm action={createDefaultServicesAction.bind(null, propertyId)}>
-            <Button type="submit" variant={items.length ? "secondary" : "primary"}>
-              Add standard services
-            </Button>
-          </ActionForm>
+          <div className="flex flex-wrap gap-2">
+            <ActionForm action={createDefaultServicesAction.bind(null, propertyId)}>
+              <Button type="submit" variant={items.length ? "secondary" : "primary"}>
+                Add standard services
+              </Button>
+            </ActionForm>
+            <ActionForm action={createModuleServicesAction.bind(null, propertyId)}>
+              <Button type="submit" variant="secondary">
+                Add dining, laundry &amp; spa
+              </Button>
+            </ActionForm>
+          </div>
         )}
       </div>
 
@@ -176,6 +199,7 @@ export default async function ServicesPage({ params }: { params: Promise<{ prope
                     <span className="font-medium">{s.name}</span>
                     <span className="text-sm text-muted-foreground">→ {s.departmentName}</span>
                     {s.enabled ? <Badge tone="success">Shown</Badge> : <Badge tone="warning">Hidden</Badge>}
+                    {s.kind !== "request" && <Badge tone="info">{s.kind === "menu" ? "Menu" : "Booking"}</Badge>}
                     {s.departmentStatus !== "active" && <Badge tone="danger">Department inactive</Badge>}
                     {s.availableFrom && (
                       <span className="text-xs text-muted-foreground">
@@ -184,6 +208,14 @@ export default async function ServicesPage({ params }: { params: Promise<{ prope
                     )}
                   </summary>
                   <div className="space-y-3 border-t border-border p-4">
+                    {s.kind === "menu" && (
+                      <Link
+                        href={`/properties/${propertyId}/services/${s.id}/menu`}
+                        className="inline-block text-sm text-primary underline underline-offset-4"
+                      >
+                        Edit menu and prices →
+                      </Link>
+                    )}
                     <ActionForm action={updateServiceAction.bind(null, propertyId, s.id)} className="space-y-3" aria-label={`Edit ${s.name}`}>
                       <fieldset disabled={!manage} className="space-y-3">
                         <ServiceFields v={s} departments={departments} idp={s.id} />

@@ -67,3 +67,18 @@ export function localDate(instant: Date, timeZone: string): string {
 export function tomorrowIn(timeZone: string, now: Date = new Date()): string {
   return localDate(new Date(now.getTime() + 86400_000), timeZone);
 }
+
+/** Calendar arithmetic on "YYYY-MM-DD" strings (no timezone involved). */
+export function addDays(date: string, days: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Nights of a stay: every date in [from, to). */
+export function eachNight(from: string, to: string): string[] {
+  const out: string[] = [];
+  for (let d = from; d < to && out.length < 400; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+
+export const isoDateSchemaPattern = /^\d{4}-\d{2}-\d{2}$/;

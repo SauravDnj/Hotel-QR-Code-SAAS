@@ -44,6 +44,7 @@ export function backoffSeconds(attempts: number): number {
 
 interface Claimed {
   id: string;
+  tenant_id: string;
   event_type: string;
   channels: string[];
   payload: Record<string, unknown>;
@@ -54,7 +55,10 @@ interface Claimed {
  * Claims up to `limit` due events with a short lease (safe across concurrent serverless
  * invocations via SKIP LOCKED), publishes them, and records the outcome.
  */
-export async function drainOutbox(db: Db, publisher: RealtimePublisher, opts: { limit?: number } = {}) {
+/** Delivers a "notify.*" (push / SMS) or "webhook.*" job; throws to retry. null = jobs are skipped. */
+export type Notifier = ((ev: { tenantId: string; eventType: string; payload: Record<string, unknown> }) => Promise<unknown>) | null;
+
+export async function drainOutbox(db: Db, publisher: RealtimePublisher, opts: { limit?: number; notifier?: Notifier } = {}) {
   const limit = opts.limit ?? 25;
   const claimed = (await db.execute(sql`
     update ${outboxEvents} set
@@ -67,20 +71,22 @@ export async function drainOutbox(db: Db, publisher: RealtimePublisher, opts: { 
       limit ${limit}
       for update skip locked
     )
-    returning id, event_type, channels, payload, attempts
+    returning id, tenant_id, event_type, channels, payload, attempts
   `)) as unknown as { rows: Claimed[] } | Claimed[];
   const rows: Claimed[] = Array.isArray(claimed) ? claimed : claimed.rows;
 
   let published = 0;
   let failed = 0;
   for (const ev of rows) {
-    if (!publisher.enabled) {
+    const isNotify = ev.event_type.startsWith("notify.") || ev.event_type.startsWith("webhook.");
+    if (isNotify ? !opts.notifier : !publisher.enabled) {
       // No realtime provider configured: the database inbox (polling) is the delivery path.
       await db.update(outboxEvents).set({ status: "skipped" }).where(eq(outboxEvents.id, ev.id));
       continue;
     }
     try {
-      for (const channel of ev.channels) await publisher.publish(channel, ev.event_type, ev.payload);
+      if (isNotify) await opts.notifier!({ tenantId: ev.tenant_id, eventType: ev.event_type, payload: ev.payload });
+      else for (const channel of ev.channels) await publisher.publish(channel, ev.event_type, ev.payload);
       await db.update(outboxEvents).set({ status: "published", publishedAt: new Date(), lastError: null }).where(eq(outboxEvents.id, ev.id));
       published++;
     } catch (err) {

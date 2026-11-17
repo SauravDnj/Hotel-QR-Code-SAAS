@@ -118,6 +118,7 @@ export async function findActiveQr(db: Db, token: unknown) {
       propertyName: properties.name,
       city: properties.city,
       timezone: properties.timezone,
+      currency: properties.currency,
       settings: guestPortalSettings,
     })
     .from(roomQrCodes)

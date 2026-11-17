@@ -57,6 +57,34 @@
       "when": 1794863534778,
       "tag": "0007_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794899428263,
+      "tag": "0008_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794900499040,
+      "tag": "0009_ordering_folio",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794901287180,
+      "tag": "0010_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794901844376,
+      "tag": "0011_integrations",
+      "breakpoints": true
     }
   ]
 }

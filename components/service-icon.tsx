@@ -1,4 +1,18 @@
-import { Bell, ConciergeBell, GlassWater, MessageSquare, Shield, Shirt, Sparkles, Utensils, Wrench, type LucideIcon } from "lucide-react";
+import {
+  AlarmClock,
+  Bell,
+  CarTaxiFront,
+  ConciergeBell,
+  Flower2,
+  GlassWater,
+  MessageSquare,
+  Shield,
+  Shirt,
+  Sparkles,
+  Utensils,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 
 /** Keep in sync with SERVICE_ICONS in modules/services/catalog.ts. */
 const ICONS: Record<string, LucideIcon> = {
@@ -11,6 +25,9 @@ const ICONS: Record<string, LucideIcon> = {
   utensils: Utensils,
   shirt: Shirt,
   shield: Shield,
+  flower: Flower2,
+  car: CarTaxiFront,
+  "alarm-clock": AlarmClock,
 };
 
 export function ServiceIcon({ name, className }: { name: string; className?: string }) {

@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { clientIp } from "@/lib/auth/ip";
 import { getDb } from "@/lib/db/client";
 import { formatDateTime } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 import { getGuestRequestStatus } from "@/modules/requests/guest";
 import { RememberRequest } from "../../r/my-requests";
 import { GuestShell } from "../../r/guest-shell";
@@ -85,8 +86,37 @@ export default async function GuestStatusPage({ params }: { params: Promise<{ to
           </ol>
         )}
 
+        {r.order && (
+          <div className="mt-5 border-t border-border pt-4 text-sm">
+            <h2 className="mb-2 font-semibold">Your order</h2>
+            <ul className="space-y-1">
+              {r.order.lines.map((l) => (
+                <li key={l.name} className="flex justify-between gap-4">
+                  <span>
+                    {l.quantity} × {l.name}
+                  </span>
+                  <span>{formatMoney(l.lineTotalMinor, r.order!.currency)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 flex justify-between border-t border-border pt-2 font-semibold">
+              <span>Total</span>
+              <span>{formatMoney(r.order.totalMinor, r.order.currency)}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {r.order.paymentMethod === "room" ? "Added to your room bill when delivered." : "Pay on delivery."}
+            </p>
+          </div>
+        )}
+
         <dl className="mt-5 space-y-1 border-t border-border pt-4 text-sm">
-          {r.quantity !== null && (
+          {r.scheduledFor && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Requested for</dt>
+              <dd>{formatDateTime(r.scheduledFor, r.timezone)}</dd>
+            </div>
+          )}
+          {r.quantity !== null && !r.order && (
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Quantity</dt>
               <dd>{r.quantity}</dd>

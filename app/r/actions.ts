@@ -20,6 +20,11 @@ export interface GuestFormState {
  */
 export async function submitGuestRequestAction(qrToken: string, _prev: GuestFormState, fd: FormData): Promise<GuestFormState> {
   const str = (k: string) => (typeof fd.get(k) === "string" ? (fd.get(k) as string) : undefined);
+  // Menu orders arrive as item:<menuItemId>=<quantity>; capped before validation.
+  const items: Record<string, string> = {};
+  for (const [k, v] of fd.entries()) {
+    if (k.startsWith("item:") && typeof v === "string" && Object.keys(items).length < 60) items[k.slice(5, 41)] = v;
+  }
   let result;
   try {
     result = await submitGuestRequest(
@@ -31,6 +36,10 @@ export async function submitGuestRequestAction(qrToken: string, _prev: GuestForm
         quantity: str("quantity"),
         option: str("option"),
         note: str("note"),
+        items,
+        paymentMethod: str("paymentMethod"),
+        scheduledDate: str("scheduledDate"),
+        scheduledTime: str("scheduledTime"),
       },
       { ip: clientIp(await headers()) },
     );

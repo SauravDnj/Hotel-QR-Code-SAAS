@@ -6,7 +6,7 @@ import { authorize, type TenantContext } from "@/lib/permissions/authorize";
 export interface AuditEntry {
   tenantId: string | null;
   actorUserId: string | null;
-  actorType: "user" | "platform_admin" | "system";
+  actorType: "user" | "platform_admin" | "system" | "api_key";
   action: string;
   entityType: string;
   entityId?: string | null;

@@ -91,7 +91,7 @@ export default async function BillingPage() {
           <Meter label="Rooms" used={b.usage.rooms} max={e.maxRooms} />
           <Meter label="Properties" used={b.usage.properties} max={e.maxProperties} />
           <Meter label="Staff seats (incl. open invitations)" used={b.usage.staffSeats} max={e.maxStaffSeats} />
-          <p className="text-xs text-muted-foreground">Reports: {e.modules.reports ? "included" : "not included"}</p>
+          <p className="text-xs text-muted-foreground">Reports: {e.modules.reports ? "included" : "not included"} · Integrations: {e.modules.integrations ? "included" : "not included"}</p>
         </div>
       </Card>
 
@@ -121,6 +121,7 @@ export default async function BillingPage() {
                     <li>Up to {p.entitlements.maxProperties} propert{p.entitlements.maxProperties === 1 ? "y" : "ies"}</li>
                     <li>Up to {p.entitlements.maxStaffSeats} staff</li>
                     <li>{p.entitlements.modules.reports ? "Reports included" : "No reports"}</li>
+                    <li>{p.entitlements.modules.integrations ? "API & integrations" : "No API access"}</li>
                   </ul>
                   {manage && b.paymentsEnabled && p.razorpayPlanId && !(current && s.status === "active") && (
                     <ActionForm action={choosePlanAction.bind(null, p.id)} className="mt-auto pt-2">
