@@ -117,19 +117,11 @@ export function PortalForm({ action, initial, hasWifiPassword, sections, readOnl
           </div>
         </Card>
 
-        <Card className="space-y-4">
-          <h3 className="text-sm font-semibold">Branding</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Accent colour" name="accentColor" error={e.accentColor} hint="Hex, e.g. #1E3A5F. Blank = default.">
-              <Input name="accentColor" placeholder="#1E3A5F" defaultValue={v.accentColor ?? ""} invalid={!!e.accentColor} />
-            </Field>
-            <Field label="Logo image URL" name="logoUrl" error={e.logoUrl} hint="https:// link to a PNG/SVG.">
-              <Input name="logoUrl" type="url" defaultValue={v.logoUrl ?? ""} invalid={!!e.logoUrl} />
-            </Field>
-            <Field label="Cover image URL" name="coverImageUrl" error={e.coverImageUrl} hint="Optional wide photo.">
-              <Input name="coverImageUrl" type="url" defaultValue={v.coverImageUrl ?? ""} invalid={!!e.coverImageUrl} />
-            </Field>
-          </div>
+        <Card>
+          <h3 className="text-sm font-semibold">Look and photos</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Template, colours, logo, cover photo and gallery are on the <strong>Design &amp; photos</strong> tab.
+          </p>
         </Card>
 
         <Card className="space-y-4">

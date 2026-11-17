@@ -1,3 +1,4 @@
+import { AutoRefresh } from "@/components/auto-refresh";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, ConfirmButton } from "@/components/action-form";
@@ -42,6 +43,7 @@ export default async function FrontDeskPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
+      <AutoRefresh seconds={30} />
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Front desk</h1>
         <p className="text-sm text-muted-foreground">

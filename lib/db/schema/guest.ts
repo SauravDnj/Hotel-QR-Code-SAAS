@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { qrStatus } from "./enums";
 import { users } from "./identity";
+import { mediaAssets } from "./media";
 import { rooms } from "./structure";
 import { properties, tenants, timestamps } from "./tenancy";
 
@@ -77,6 +78,16 @@ export const guestPortalSettings = pgTable(
     accentColor: text("accent_color"),
     logoUrl: text("logo_url"),
     coverImageUrl: text("cover_image_url"),
+    /** Design (guest page theme): classic | photo | elegant | minimal. */
+    theme: text("theme").notNull().default("classic"),
+    /** Page background (#rrggbb); null = default light/dark. */
+    backgroundColor: text("background_color"),
+    /** sans | serif */
+    fontStyle: text("font_style").notNull().default("sans"),
+    showGallery: boolean("show_gallery").notNull().default(true),
+    /** Uploaded photos (take priority over the URL fields above). */
+    logoMediaId: uuid("logo_media_id").references(() => mediaAssets.id, { onDelete: "set null" }),
+    coverMediaId: uuid("cover_media_id").references(() => mediaAssets.id, { onDelete: "set null" }),
     wifiSsid: text("wifi_ssid"),
     wifiPasswordCiphertext: text("wifi_password_ciphertext"),
     wifiNote: text("wifi_note"),

@@ -16,6 +16,7 @@ import {
 import { requestPriority, requestStatus, serviceKind, serviceNoteMode } from "./enums";
 import { roomQrCodes } from "./guest";
 import { users } from "./identity";
+import { mediaAssets } from "./media";
 import { stays } from "./stays";
 import { departments, rooms } from "./structure";
 import { properties, tenants, timestamps } from "./tenancy";
@@ -37,6 +38,8 @@ export const serviceItems = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     icon: text("icon").notNull().default("bell"),
+    /** Optional photo shown on the guest tile (photo theme / service page). */
+    imageMediaId: uuid("image_media_id").references(() => mediaAssets.id, { onDelete: "set null" }),
     kind: serviceKind("kind").notNull().default("request"),
     /** Menu services: guests in a checked-in room may charge the order to their room bill. */
     allowRoomCharge: boolean("allow_room_charge").notNull().default(true),

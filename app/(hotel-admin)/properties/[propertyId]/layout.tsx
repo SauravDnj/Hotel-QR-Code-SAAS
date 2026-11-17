@@ -39,6 +39,7 @@ export default async function PropertyLayout({
       : []),
     ...(can(ctx, "qr.view", scope) ? [{ href: "/qr-codes", label: "QR codes" }] : []),
     { href: "/guest-portal", label: "Guest portal" },
+    { href: "/design", label: "Design & photos" },
     { href: "/services", label: "Services" },
     { href: "/departments", label: "Departments" },
   ];

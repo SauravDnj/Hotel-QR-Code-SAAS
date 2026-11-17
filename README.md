@@ -310,6 +310,18 @@ tests/               unit, integration (in-process Postgres via PGlite), e2e (Pl
   now covers home-screen install, offline page and push notifications (iOS 16.4+ from the Home Screen),
   so no gap justifies a native app yet.
 
+## Guest page design, photos and automatic statuses
+
+- **Design & photos** tab (per property): 4 templates (Classic, Photo, Elegant, Minimal), one-click colour palettes,
+  colour pickers (main + page background, text colour picked automatically for contrast), modern/serif font,
+  gallery on/off, and a live phone preview of the real guest page.
+- **Photos**: logo, cover, gallery (up to 20, captions, reorder) and a photo per service tile. Photos are resized in
+  the browser (≤ 1.4 MB), checked by magic bytes on the server (JPEG/PNG/WebP only, never SVG), stored in
+  `media_assets` and served from `/media/{id}` with immutable CDN caching.
+- **Automatic statuses**: check-in → room occupied; checkout → dirty + cleaning task; cleaned → inspected → ready
+  (existing). New: the daily cron marks bookings not checked in by the end of their arrival day as **no-show**
+  (frees capacity, audited, webhook). Front desk, rooms, dashboard, reservations and housekeeping refresh themselves.
+
 ## SaaS super admin console
 
 Super admins (`users.is_platform_admin`, two-step sign-in required) land on `/platform` after sign-in:

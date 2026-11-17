@@ -31,6 +31,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["@node-rs/argon2"],
+  // Hotel photos are resized in the browser to ≤ 1.4 MB before upload (server re-checks ≤ 1.5 MB).
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   async headers() {
     // Public QR portal and request receipts: the URL holds a bearer token, so never cache,
     // index or leak it via Referer.

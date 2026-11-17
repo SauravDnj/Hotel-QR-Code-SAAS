@@ -449,6 +449,7 @@ export async function listGuestServices(db: Db, scope: { tenantId: string; prope
       name: serviceItems.name,
       description: serviceItems.description,
       icon: serviceItems.icon,
+      imageMediaId: serviceItems.imageMediaId,
       kind: serviceItems.kind,
       allowRoomCharge: serviceItems.allowRoomCharge,
       maxQuantity: serviceItems.maxQuantity,
@@ -470,5 +471,9 @@ export async function listGuestServices(db: Db, scope: { tenantId: string; prope
     )
     .orderBy(asc(serviceItems.sortOrder), asc(serviceItems.name));
   const now = new Date();
-  return rows.map((r) => ({ ...r, availableNow: isAvailableAt(r, scope.timezone, now) }));
+  return rows.map(({ imageMediaId, ...r }) => ({
+    ...r,
+    imageUrl: imageMediaId ? `/media/${imageMediaId}` : null,
+    availableNow: isAvailableAt(r, scope.timezone, now),
+  }));
 }

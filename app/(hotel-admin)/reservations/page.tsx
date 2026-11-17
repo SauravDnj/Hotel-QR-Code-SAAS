@@ -1,3 +1,4 @@
+import { AutoRefresh } from "@/components/auto-refresh";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PermissionDenied } from "@/components/permission-denied";
@@ -57,6 +58,7 @@ export default async function ReservationsPage({
 
   return (
     <div className="space-y-6">
+      <AutoRefresh seconds={60} />
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Reservations</h1>
         <p className="text-sm text-muted-foreground">

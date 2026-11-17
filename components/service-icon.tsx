@@ -30,7 +30,7 @@ const ICONS: Record<string, LucideIcon> = {
   "alarm-clock": AlarmClock,
 };
 
-export function ServiceIcon({ name, className }: { name: string; className?: string }) {
+export function ServiceIcon({ name, className, style }: { name: string; className?: string; style?: React.CSSProperties }) {
   const Icon = ICONS[name] ?? Bell;
-  return <Icon className={className} aria-hidden />;
+  return <Icon className={className} style={style} aria-hidden />;
 }

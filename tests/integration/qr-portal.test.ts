@@ -87,6 +87,7 @@ describe("room QR lifecycle and guest portal", () => {
       [
         "checkInTime", "checkOutTime", "city", "contactEmail", "coverImageUrl", "hotelName", "infoSections",
         "logoUrl", "privacyNotice", "receptionPhone", "roomLabel", "welcomeMessage", "wifi", "accentColor",
+        "theme", "backgroundColor", "fontStyle", "gallery",
       ].sort(),
     );
     expect(res.portal.wifi).toEqual({ ssid: "Alpha-Guest", password: "sunrise-2026", note: null });

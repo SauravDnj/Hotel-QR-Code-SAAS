@@ -17,62 +17,111 @@ export const metadata: Metadata = {
   referrer: "same-origin",
 };
 
-export default async function GuestRequestPage({ params }: { params: Promise<{ token: string; serviceId: string }> }) {
+export default async function GuestRequestPage({
+  params,
+}: {
+  params: Promise<{ token: string; serviceId: string }>;
+}) {
   const { token, serviceId } = await params;
-  const data = await getGuestServiceForm(getDb(), token, serviceId, { ip: clientIp(await headers()) });
+  const data = await getGuestServiceForm(getDb(), token, serviceId, {
+    ip: clientIp(await headers()),
+  });
   if (!data) notFound();
   const { service } = data;
   const accent = data.accentColor ?? "#1f2a44";
 
+  const page = {
+    ...(data.backgroundColor
+      ? {
+          background: data.backgroundColor,
+          color: readableOn(data.backgroundColor),
+        }
+      : {}),
+    ...(data.serif
+      ? { fontFamily: 'Georgia, Cambria, "Times New Roman", serif' }
+      : {}),
+  };
+
   return (
-    <GuestShell>
-      <Link href={`/r/${token}`} className="inline-flex min-h-11 items-center text-sm font-medium" style={{ color: accent }}>
-        ← Back
-      </Link>
-      <div className="rounded-2xl bg-surface p-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="rounded-full p-2.5" style={{ background: `${accent}1a`, color: accent }}>
-            <ServiceIcon name={service.icon} className="size-6" />
-          </span>
-          <div>
-            <h1 className="text-xl font-semibold leading-tight">{service.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              {data.hotelName}
-              {data.roomLabel && <> · Room {data.roomLabel}</>}
-            </p>
+    <div className="min-h-dvh" style={page}>
+      <GuestShell>
+        <Link
+          href={`/r/${token}`}
+          className="inline-flex min-h-11 items-center text-sm font-medium"
+          style={{
+            color: data.backgroundColor
+              ? readableOn(data.backgroundColor)
+              : accent,
+          }}
+        >
+          ← Back
+        </Link>
+        <div className="overflow-hidden rounded-2xl bg-surface p-5 text-foreground shadow-sm">
+          {service.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- hotel photo served from /media
+            <img
+              src={service.imageUrl}
+              alt=""
+              className="-mx-5 -mt-5 mb-4 h-44 w-[calc(100%+2.5rem)] max-w-none object-cover"
+            />
+          )}
+          <div className="flex items-center gap-3">
+            <span
+              className="rounded-full p-2.5"
+              style={{ background: `${accent}1a`, color: accent }}
+            >
+              <ServiceIcon name={service.icon} className="size-6" />
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold leading-tight">
+                {service.name}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {data.hotelName}
+                {data.roomLabel && <> · Room {data.roomLabel}</>}
+              </p>
+            </div>
           </div>
+          {service.description && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              {service.description}
+            </p>
+          )}
+          {service.kind === "menu" && service.availableNow ? (
+            <OrderForm
+              action={submitGuestRequestAction.bind(null, token)}
+              serviceId={service.id}
+              idempotencyKey={crypto.randomUUID()}
+              menu={data.menu}
+              currency={data.currency}
+              canChargeRoom={data.canChargeRoom}
+              noteMode={service.noteMode}
+              accent={accent}
+              onAccent={readableOn(accent)}
+            />
+          ) : !service.availableNow && service.kind !== "booking" ? (
+            <p
+              className="mt-4 rounded-xl bg-surface-muted p-3 text-sm"
+              role="status"
+            >
+              Available {service.availableFrom}–{service.availableTo}. Please
+              call reception if it&apos;s urgent.
+            </p>
+          ) : (
+            <RequestForm
+              action={submitGuestRequestAction.bind(null, token)}
+              serviceId={service.id}
+              idempotencyKey={crypto.randomUUID()}
+              maxQuantity={service.maxQuantity}
+              options={service.options}
+              noteMode={service.noteMode}
+              accent={accent}
+              onAccent={readableOn(accent)}
+              booking={data.booking}
+            />
+          )}
         </div>
-        {service.description && <p className="mt-3 text-sm text-muted-foreground">{service.description}</p>}
-        {service.kind === "menu" && service.availableNow ? (
-          <OrderForm
-            action={submitGuestRequestAction.bind(null, token)}
-            serviceId={service.id}
-            idempotencyKey={crypto.randomUUID()}
-            menu={data.menu}
-            currency={data.currency}
-            canChargeRoom={data.canChargeRoom}
-            noteMode={service.noteMode}
-            accent={accent}
-            onAccent={readableOn(accent)}
-          />
-        ) : !service.availableNow && service.kind !== "booking" ? (
-          <p className="mt-4 rounded-xl bg-surface-muted p-3 text-sm" role="status">
-            Available {service.availableFrom}–{service.availableTo}. Please call reception if it&apos;s urgent.
-          </p>
-        ) : (
-          <RequestForm
-            action={submitGuestRequestAction.bind(null, token)}
-            serviceId={service.id}
-            idempotencyKey={crypto.randomUUID()}
-            maxQuantity={service.maxQuantity}
-            options={service.options}
-            noteMode={service.noteMode}
-            accent={accent}
-            onAccent={readableOn(accent)}
-            booking={data.booking}
-          />
-        )}
-      </div>
-    </GuestShell>
+      </GuestShell>
+    </div>
   );
 }

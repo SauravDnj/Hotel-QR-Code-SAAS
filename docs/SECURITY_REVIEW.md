@@ -87,3 +87,13 @@ New attack surface:
 **Accepted:** DNS rebinding between the resolve check and the connection is still possible. Mitigations:
 the check runs per delivery, events are thin, and redirects are refused. **Revisit** if webhooks ever
 carry sensitive data.
+
+### Guest page design and photos (2026-11-17)
+
+| ID | Area | Risk | Control | Test |
+|---|---|---|---|---|
+| PH-1 | Uploads | Script/HTML disguised as image (stored XSS) | Type from magic bytes only (JPEG/PNG/WebP), SVG refused; `/media` sends exact type + `nosniff` + `CSP: default-src 'none'; sandbox` | `portal-design.test.ts` |
+| PH-2 | Uploads | Storage abuse | ≤ 1.5 MB per photo (server), 2 MB action body limit, ≤ 20 gallery photos per property (advisory-locked), old logo/cover/service photos deleted on replace | `portal-design.test.ts` |
+| PH-3 | Isolation | Editing another hotel's photos | All writes via `requireProperty` (tenant + permission + writable); media rows scoped by tenant + property; support view refused | `portal-design.test.ts` |
+| PH-4 | Privacy | Photos are public | Only hotel pictures by design (no guest data); unguessable UUID URLs | — |
+

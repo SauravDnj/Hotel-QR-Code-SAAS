@@ -1,3 +1,4 @@
+import { AutoRefresh } from "@/components/auto-refresh";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -20,6 +21,7 @@ export default async function DashboardPage() {
 
   return (
     <>
+      <AutoRefresh seconds={30} />
       <PageHeader title="Dashboard" description={`Welcome to ${ctx.tenantName}.`} />
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

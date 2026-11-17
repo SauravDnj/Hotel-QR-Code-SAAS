@@ -1,3 +1,4 @@
+import { AutoRefresh } from "@/components/auto-refresh";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -18,6 +19,7 @@ export default async function RoomsIndexPage() {
   if (props.length === 1) redirect(`/properties/${props[0].id}/rooms`);
   return (
     <>
+      <AutoRefresh seconds={30} />
       <PageHeader title="Rooms" description="Choose a property." />
       <div className="grid gap-3 sm:grid-cols-2">
         {props.map((p) => (

@@ -299,6 +299,8 @@ export async function getGuestServiceForm(db: Db, qrToken: unknown, serviceId: s
   return {
     hotelName: qr.propertyName,
     accentColor: qr.settings?.accentColor ?? null,
+    backgroundColor: qr.settings?.backgroundColor ?? null,
+    serif: qr.settings?.fontStyle === "serif" || qr.settings?.theme === "elegant",
     roomLabel: qr.settings?.showRoomLabel === false ? null : qr.roomCode,
     currency: qr.currency,
     timezone: qr.timezone,

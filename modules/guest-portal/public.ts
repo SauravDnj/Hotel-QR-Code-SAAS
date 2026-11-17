@@ -5,6 +5,7 @@ import { decryptSecret, hashQrToken, isWellFormedQrToken } from "@/lib/crypto/se
 import { errorFields, logger } from "@/lib/observability/logger";
 import { consumeRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { listGuestServices } from "@/modules/services/catalog";
+import { mediaUrl, publicGallery, type FontStyle, type Theme } from "./design";
 import { DEFAULT_PORTAL } from "./settings";
 
 /**
@@ -25,6 +26,10 @@ export interface GuestPortal {
   accentColor: string | null;
   logoUrl: string | null;
   coverImageUrl: string | null;
+  theme: Theme;
+  backgroundColor: string | null;
+  fontStyle: FontStyle;
+  gallery: { url: string; caption: string | null }[];
   wifi: { ssid: string; password: string | null; note: string | null } | null;
   receptionPhone: string | null;
   contactEmail: string | null;
@@ -39,6 +44,7 @@ export interface GuestService {
   name: string;
   description: string | null;
   icon: string;
+  imageUrl: string | null;
   maxQuantity: number;
   options: string[];
   noteMode: "none" | "optional" | "required";
@@ -48,6 +54,8 @@ export interface GuestService {
 }
 
 export type PortalResult = { kind: "ok"; portal: GuestPortal; services: GuestService[] } | { kind: "unavailable" } | { kind: "rate_limited" };
+
+const asTheme = (t: string): Theme => (["classic", "photo", "elegant", "minimal"].includes(t) ? (t as Theme) : "classic");
 
 const BLOCKED_TENANT_STATUSES = ["suspended", "cancelled"] as const;
 
@@ -87,8 +95,12 @@ export async function resolveGuestPortal(db: Db, token: unknown, opts: { ip: str
       roomLabel: cfg.showRoomLabel ? row.roomCode : null,
       welcomeMessage: cfg.welcomeMessage,
       accentColor: cfg.accentColor,
-      logoUrl: cfg.logoUrl,
-      coverImageUrl: cfg.coverImageUrl,
+      logoUrl: cfg.logoMediaId ? mediaUrl(cfg.logoMediaId) : cfg.logoUrl,
+      coverImageUrl: cfg.coverMediaId ? mediaUrl(cfg.coverMediaId) : cfg.coverImageUrl,
+      theme: asTheme(cfg.theme),
+      backgroundColor: cfg.backgroundColor,
+      fontStyle: cfg.fontStyle === "serif" ? "serif" : "sans",
+      gallery: cfg.showGallery ? await publicGallery(db, { tenantId: row.tenantId, propertyId: row.propertyId }) : [],
       wifi: cfg.wifiSsid ? { ssid: cfg.wifiSsid, password, note: cfg.wifiNote } : null,
       receptionPhone: cfg.receptionPhone,
       contactEmail: cfg.contactEmail,

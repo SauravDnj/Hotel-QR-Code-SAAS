@@ -3,6 +3,7 @@ export * from "./tenancy";
 export * from "./identity";
 export * from "./operations";
 export * from "./structure";
+export * from "./media";
 export * from "./guest";
 export * from "./requests";
 export * from "./staff";

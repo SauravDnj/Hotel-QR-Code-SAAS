@@ -1,8 +1,8 @@
 import { randomInt } from "node:crypto";
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "@/lib/db/types";
-import { floors, guestPortalSettings, guests, reservations, roomCategories, rooms, stays } from "@/lib/db/schema";
+import { floors, guestPortalSettings, guests, properties, reservations, roomCategories, rooms, stays } from "@/lib/db/schema";
 import type { ReservationStatus } from "@/lib/db/schema/enums";
 import { conflict, notFound } from "@/lib/errors";
 import type { TenantContext } from "@/lib/permissions/authorize";
@@ -592,3 +592,45 @@ export async function reservationCalendar(db: Db, ctx: TenantContext, propertyId
 }
 
 export { OCCUPYING };
+
+/**
+ * Night audit (daily cron): a confirmed booking whose arrival day has fully passed in the
+ * property's timezone, without check-in, becomes a no-show. This frees its room-type capacity
+ * automatically. Idempotent; audited as "system".
+ */
+export async function sweepNoShows(db: Db, now: Date = new Date(), limit = 500) {
+  const due = await db
+    .select({ id: reservations.id, tenantId: reservations.tenantId })
+    .from(reservations)
+    .innerJoin(properties, and(eq(properties.id, reservations.propertyId), eq(properties.tenantId, reservations.tenantId)))
+    .where(
+      and(
+        eq(reservations.status, "confirmed"),
+        sql`${reservations.arrivalDate} < (${now.toISOString()}::timestamptz at time zone ${properties.timezone})::date`,
+      ),
+    )
+    .limit(limit);
+  let changed = 0;
+  for (const r of due) {
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(reservations)
+        .set({ status: "no_show", cancelledAt: now, cancelReason: "Automatic: not checked in by the end of the arrival day" })
+        .where(and(eq(reservations.id, r.id), eq(reservations.status, "confirmed")))
+        .returning();
+      if (!row) return;
+      changed++;
+      await writeAudit(tx, {
+        tenantId: row.tenantId,
+        actorUserId: null,
+        actorType: "system",
+        action: "reservation.no_show",
+        entityType: "reservation",
+        entityId: row.id,
+        metadata: { propertyId: row.propertyId, code: row.code, automatic: true },
+      });
+      await enqueueWebhookEvent(tx, row.tenantId, "reservation.no_show", reservationEvent(row));
+    });
+  }
+  return changed;
+}

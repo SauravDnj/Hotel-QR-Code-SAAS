@@ -85,6 +85,12 @@ export const DEFAULT_PORTAL = {
   accentColor: null,
   logoUrl: null,
   coverImageUrl: null,
+  theme: "classic",
+  backgroundColor: null,
+  fontStyle: "sans",
+  showGallery: true,
+  logoMediaId: null,
+  coverMediaId: null,
   wifiSsid: null,
   wifiNote: null,
   receptionPhone: null,
@@ -116,8 +122,14 @@ export async function updatePortalSettings(db: Db, ctx: TenantContext, propertyI
   if (clearWifiPassword) wifiPasswordCiphertext = null;
   else if (wifiPassword) wifiPasswordCiphertext = encryptSecret(wifiPassword);
 
+  // Branding moved to the Design page: only overwrite these when the caller sent them.
+  const branding = input as Partial<typeof input>;
+  for (const k of ["accentColor", "logoUrl", "coverImageUrl"] as const) {
+    if ((raw as Record<string, unknown>)[k] === undefined) delete branding[k];
+  }
+
   const values = {
-    ...input,
+    ...branding,
     ...(wifiPasswordCiphertext !== undefined ? { wifiPasswordCiphertext } : {}),
     updatedByUserId: ctx.userId,
   };
