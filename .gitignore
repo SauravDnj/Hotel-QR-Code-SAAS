@@ -56,3 +56,7 @@ desktop.ini
 
 # Logical database backups (contain personal data)
 /backups
+
+# guide capture (scripts/capture-guide-media.mjs)
+.guide-session.json
+.guide-video-tmp/

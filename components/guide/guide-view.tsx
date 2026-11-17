@@ -10,12 +10,14 @@ import {
   CreditCard,
   DoorOpen,
   HelpCircle,
+  Image as ImageIcon,
   Inbox,
   KeyRound,
   Lightbulb,
   ListChecks,
   Lock,
   Palette,
+  PlayCircle,
   Plus,
   Printer,
   QrCode,
@@ -35,7 +37,7 @@ import {
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { Guide, GuideBlock, GuideSection } from "@/modules/help/content";
+import type { Guide, GuideBlock, GuideMedia, GuideSection } from "@/modules/help/content";
 
 const ICONS: Record<string, LucideIcon> = {
   rocket: Rocket,
@@ -109,7 +111,57 @@ function blockText(b: GuideBlock): string {
       return [...b.head, ...b.rows.flat()].join(" ");
     case "links":
       return b.items.map((l) => l.label).join(" ");
+    case "media":
+      return b.items.map((m) => m.caption).join(" ");
   }
+}
+
+/* eslint-disable @next/next/no-img-element -- static guide captures, already sized and compressed */
+function MediaItem({ item }: { item: GuideMedia }) {
+  const frame = item.phone
+    ? "mx-auto w-full max-w-[240px] overflow-hidden rounded-[1.75rem] border-[6px] border-foreground/80 bg-background shadow-lg"
+    : "overflow-hidden rounded-ui border border-border bg-surface-muted shadow-sm";
+  return (
+    <figure className={cn("space-y-2", item.phone ? "w-[240px] max-w-full" : "w-full")}>
+      {item.type === "video" ? (
+        <div className={frame}>
+          {/* Screen recordings have no sound; captions say what happens. */}
+          <video src={item.src} controls preload="metadata" playsInline muted className="block w-full" aria-label={item.caption} />
+        </div>
+      ) : (
+        <a href={item.src} target="_blank" rel="noreferrer" className={cn(frame, "block transition-opacity hover:opacity-90")} title="Open full size">
+          <img src={item.src} alt={item.caption} loading="lazy" decoding="async" className="block w-full" />
+        </a>
+      )}
+      <figcaption className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {item.type === "video" ? <PlayCircle className="size-3.5 shrink-0" aria-hidden /> : <ImageIcon className="size-3.5 shrink-0" aria-hidden />}
+        {item.caption}
+      </figcaption>
+    </figure>
+  );
+}
+
+function MediaBlock({ items }: { items: GuideMedia[] }) {
+  const phones = items.filter((i) => i.phone);
+  const wide = items.filter((i) => !i.phone);
+  return (
+    <div className="space-y-4 print:hidden">
+      {phones.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-6 rounded-ui bg-surface-muted p-4 sm:justify-start">
+          {phones.map((m) => (
+            <MediaItem key={m.src} item={m} />
+          ))}
+        </div>
+      )}
+      {wide.length > 0 && (
+        <div className={cn("grid gap-4", wide.length > 1 && "xl:grid-cols-2")}>
+          {wide.map((m) => (
+            <MediaItem key={m.src} item={m} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function Block({ block, showLinks }: { block: GuideBlock; showLinks: boolean }) {
@@ -195,6 +247,8 @@ function Block({ block, showLinks }: { block: GuideBlock; showLinks: boolean }) 
           </p>
         </div>
       );
+    case "media":
+      return <MediaBlock items={block.items} />;
     case "links":
       if (!showLinks) return null;
       return (

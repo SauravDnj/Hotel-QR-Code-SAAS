@@ -13,7 +13,17 @@ export type GuideBlock =
   | { kind: "table"; head: string[]; rows: string[][] }
   | { kind: "tip"; text: string }
   | { kind: "warn"; text: string }
-  | { kind: "links"; items: { href: string; label: string }[] };
+  | { kind: "links"; items: { href: string; label: string }[] }
+  | { kind: "media"; items: GuideMedia[] };
+
+/** A screenshot or screen recording from public/guide (demo hotel, QR codes masked). */
+export interface GuideMedia {
+  type: "image" | "video";
+  src: string;
+  caption: string;
+  /** Phone-sized capture: shown narrow, in a phone frame. */
+  phone?: boolean;
+}
 
 export interface GuideSection {
   id: string;
@@ -767,6 +777,46 @@ const PLATFORM_SECTIONS: GuideSection[] = [
   },
 ];
 
+const img = (name: string, caption: string, phone = false): GuideMedia => ({ type: "image", src: `/guide/${name}.jpg`, caption, phone });
+const vid = (name: string, caption: string, phone = false): GuideMedia => ({ type: "video", src: `/guide/${name}.webm`, caption, phone });
+
+/** Screens and recordings per section; shown after the text, before the "Open …" buttons. */
+const HOTEL_MEDIA: Record<string, GuideMedia[]> = {
+  "getting-started": [vid("video-tour", "Video: a quick tour of every menu"), img("dashboard", "The Dashboard after signing in")],
+  "property-setup": [img("properties", "Properties list"), img("rooms", "A property's Rooms tab with floors, types and statuses")],
+  "qr-codes": [img("qr-codes", "QR codes tab: Print sheet and scan counts per room"), img("room-qr", "One room's QR card: download, replace or deactivate")],
+  services: [img("services", "Services tab: edit what guests can ask for")],
+  "guest-page": [
+    vid("video-design", "Video: trying templates and colour palettes with the live preview"),
+    img("guest-portal", "Guest portal tab: Wi-Fi, contacts and times"),
+    img("design", "Design & photos tab with the phone preview"),
+  ],
+  staff: [img("staff", "Staff page: invite form and team list")],
+  reservations: [img("reservations", "Reservations: new booking and availability")],
+  "front-desk": [img("front-desk", "Front desk: arrivals and walk-in check-in")],
+  requests: [vid("video-staff-request", "Video: Accept → Start → Complete a request"), img("requests", "Requests list")],
+  housekeeping: [img("housekeeping", "Housekeeping board")],
+  "guest-view": [
+    vid("video-guest-request", "Video: a guest scans and sends a request", true),
+    img("guest-home", "Guest page after scanning", true),
+    img("guest-request", "Request form", true),
+  ],
+  reports: [img("reports", "Reports page")],
+  billing: [img("billing", "Billing page: plan, limits and receipts")],
+  "my-account": [img("profile", "My profile: password, two-step sign-in and notifications")],
+};
+
+function withMedia(sections: GuideSection[], media: Record<string, GuideMedia[]>): GuideSection[] {
+  return sections.map((s) => {
+    const items = media[s.id];
+    if (!items?.length) return s;
+    const at = s.blocks.findIndex((b) => b.kind === "links");
+    const blocks = [...s.blocks];
+    blocks.splice(at === -1 ? blocks.length : at, 0, { kind: "media", items });
+    return { ...s, blocks };
+  });
+}
+
 export const HOTEL_GUIDE: Guide = {
   key: "hotel",
   title: "Hotel guide",
@@ -779,7 +829,7 @@ export const HOTEL_GUIDE: Guide = {
     { title: "Check guests in", text: "Front desk", section: "front-desk" },
     { title: "Handle requests", text: "Accept → Start → Complete", section: "requests" },
   ],
-  sections: HOTEL_SECTIONS,
+  sections: withMedia(HOTEL_SECTIONS, HOTEL_MEDIA),
 };
 
 export const PLATFORM_GUIDE: Guide = {
@@ -793,7 +843,9 @@ export const PLATFORM_GUIDE: Guide = {
     { title: "Help a hotel", text: "Log in as admin or guest", section: "platform-enter-hotel" },
     { title: "Support people", text: "Resets and blocks", section: "platform-support" },
   ],
-  sections: PLATFORM_SECTIONS,
+  sections: withMedia(PLATFORM_SECTIONS, {
+    "platform-enter-hotel": [img("guest-home", "What you see with Open as a guest (room page)", true), img("dashboard", "A hotel's workspace after Log in as hotel admin")],
+  }),
 };
 
 /** Hotel sections a staff member should see: any listed permission, or none listed. */

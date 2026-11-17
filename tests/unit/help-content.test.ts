@@ -33,6 +33,8 @@ describe("in-app guide content", () => {
         for (const b of s.blocks) {
           if (b.kind === "links") for (const l of b.items) expect(routes, `${s.id} → ${l.href}`).toContain(l.href);
           if (b.kind === "table") for (const r of b.rows) expect(r).toHaveLength(b.head.length);
+          if (b.kind === "media")
+            for (const m of b.items) expect(existsSync(join(process.cwd(), "public", m.src)), `${s.id} → ${m.src}`).toBe(true);
         }
       }
     });
