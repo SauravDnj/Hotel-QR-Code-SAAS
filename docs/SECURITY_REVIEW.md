@@ -82,6 +82,8 @@ New attack surface:
 | SA-2 | Support view | Operator changes hotel data | Support context has only `*.view` grants and `supportMode`, which makes `assertTenantWritable`/`canWrite` refuse; no membership id; 1 h cookie, cleared on sign-out; start is audited with a reason | `platform-admin.test.ts` |
 | SA-3 | Operator onboarding | Operator knows owner password | Random unknowable password + one-time 1 h reset link (HMAC stored) | `platform-admin.test.ts` |
 | SA-4 | Lock-out | Hotel or platform left without an admin | Can't disable the last active owner, block your own login, or remove your own super admin | `platform-admin.test.ts` |
+| SA-6 | Log in as hotel admin | Operator silently changes hotel data | Explicit "full" mode started with a required reason (audited `platform.admin_access_started`), red banner, 1 h; cookie HMAC-signed with mode + expiry (tampering → ignored); writes carry the operator's user id | `platform-admin.test.ts` |
+| SA-7 | Open as guest | QR tokens exposed to operators | Room guest links listed only to platform admins, page view audited (`platform.guest_links_viewed`) | `platform-admin.test.ts` |
 | SA-5 | Accountability | Silent operator changes | Plan, profile, payment, access, login and admin changes all audited with a required reason | `platform-admin.test.ts` |
 
 **Accepted:** DNS rebinding between the resolve check and the connection is still possible. Mitigations:

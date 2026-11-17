@@ -91,21 +91,29 @@ export async function loadTenantContext(
 export const SUPPORT_MEMBERSHIP_ID = "00000000-0000-0000-0000-000000000000";
 
 /**
- * Read-only support view for a SaaS operator (RBAC_PERMISSIONS.md "audited support mode").
- * Only *.view permissions, tenant-wide, and `supportMode` makes every write guard refuse.
+ * Super admin access to a hotel without being on its staff (RBAC_PERMISSIONS.md "audited
+ * support mode"). "view": only *.view permissions and `supportMode`, so every write guard
+ * refuses. "full": every permission, like the hotel owner (started with an audited reason).
  * Callers must have verified the user is a platform admin with two-step sign-in.
  */
-export async function loadSupportContext(db: Db, userId: string, tenantId: string): Promise<TenantContext | null> {
+export async function loadSupportContext(
+  db: Db,
+  userId: string,
+  tenantId: string,
+  mode: "view" | "full" = "view",
+): Promise<TenantContext | null> {
   const [t] = await db.select({ id: tenants.id, name: tenants.name, status: tenants.status }).from(tenants).where(eq(tenants.id, tenantId));
   if (!t) return null;
-  const view = (Object.keys(PERMISSIONS) as PermissionKey[]).filter((k) => k.endsWith(".view"));
+  const all = Object.keys(PERMISSIONS) as PermissionKey[];
+  const granted = mode === "full" ? all : all.filter((k) => k.endsWith(".view"));
   return {
     userId,
     membershipId: SUPPORT_MEMBERSHIP_ID,
     tenantId: t.id,
     tenantName: t.name,
     tenantStatus: t.status,
-    grants: [{ roleKey: "platform_support", propertyId: null, departmentId: null, permissions: new Set(view) }],
-    supportMode: true,
+    grants: [{ roleKey: mode === "full" ? "platform_admin_access" : "platform_support", propertyId: null, departmentId: null, permissions: new Set(granted) }],
+    supportMode: mode === "view",
+    operatorMode: mode,
   };
 }

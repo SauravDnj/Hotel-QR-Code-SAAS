@@ -22,6 +22,10 @@ import {
 import { createFloor } from "@/modules/rooms/floors";
 import { listRooms } from "@/modules/rooms/rooms";
 import { loadSupportContext, loadTenantContext } from "@/modules/tenants/context";
+import { decodeSupportCookie, encodeSupportCookie } from "@/lib/auth/support-cookie";
+import { createRoom } from "@/modules/rooms/rooms";
+import { createCategory } from "@/modules/rooms/categories";
+import { listGuestLinks } from "@/modules/platform/admin";
 import { addStaff, createTenantFixture, createTestDb, type TenantFixture } from "../helpers/db";
 
 describe("SaaS super admin console", () => {
@@ -177,5 +181,43 @@ describe("SaaS super admin console", () => {
     expect(await loadSupportContext(db, B.userId, crypto.randomUUID())).toBeNull();
     const [audit] = await listPlatformAudit(db, op(), { tenantId: A.tenantId, q: "support_view" });
     expect(audit).toMatchObject({ action: "platform.support_view_started", actorEmail: expect.any(String) });
+  });
+
+  it("log in as hotel admin: full permissions, writes work and are attributed to the super admin", async () => {
+    await expect(startSupportSession(db, notOp(), A.tenantId, { reason: "x", mode: "full" })).rejects.toMatchObject({ code: "forbidden" });
+    expect(await startSupportSession(db, op(), A.tenantId, { reason: "Setup help call", mode: "full" })).toBe("full");
+    const ctx = (await loadSupportContext(db, B.userId, A.tenantId, "full"))!;
+    expect(ctx.supportMode).toBe(false);
+    expect(ctx.operatorMode).toBe("full");
+    expect(can(ctx, "staff.manage") && can(ctx, "room.manage", { propertyId: A.propertyId }) && can(ctx, "tenant.manage")).toBe(true);
+    const floor = await createFloor(db, ctx, A.propertyId, { name: "Operator floor" });
+    expect(floor.id).toBeTruthy();
+    const [entry] = await listPlatformAudit(db, op(), { tenantId: A.tenantId, q: "admin_access_started" });
+    expect(entry).toMatchObject({ actorType: "platform_admin", metadata: expect.objectContaining({ reason: "Setup help call" }) });
+  });
+
+  it("the access cookie is signed and expires: no editing the mode or hotel", () => {
+    const now = Date.now();
+    const c = encodeSupportCookie(A.tenantId, "view", now);
+    expect(decodeSupportCookie(c, now)).toEqual({ tenantId: A.tenantId, mode: "view" });
+    expect(decodeSupportCookie(c.replace(".view.", ".full."), now)).toBeNull();
+    expect(decodeSupportCookie(c.replace(A.tenantId, B.tenantId), now)).toBeNull();
+    expect(decodeSupportCookie(c, now + 61 * 60_000)).toBeNull();
+    expect(decodeSupportCookie(A.tenantId, now)).toBeNull(); // old unsigned format
+    expect(decodeSupportCookie(undefined)).toBeNull();
+  });
+
+  it("lists every room's guest page link for the super admin (audited)", async () => {
+    const floor = await createFloor(db, A.ctx, A.propertyId, { name: "G" });
+    const cat = await createCategory(db, A.ctx, A.propertyId, { name: "Std", capacity: 2 });
+    await createRoom(db, A.ctx, A.propertyId, { roomCode: "12", floorId: floor.id, categoryId: cat.id });
+    await createRoom(db, A.ctx, A.propertyId, { roomCode: "3", floorId: floor.id, categoryId: cat.id });
+    await expect(listGuestLinks(db, notOp(), A.tenantId)).rejects.toMatchObject({ code: "forbidden" });
+    const links = await listGuestLinks(db, op(), A.tenantId);
+    const rooms = links.properties[0].rooms;
+    expect(rooms.map((r) => r.roomCode)).toEqual(["3", "12"]);
+    expect(rooms[0].path).toMatch(/^\/r\/[A-Za-z0-9_-]{43}$/);
+    const [entry] = await listPlatformAudit(db, op(), { tenantId: A.tenantId, q: "guest_links_viewed" });
+    expect(entry).toBeTruthy();
   });
 });

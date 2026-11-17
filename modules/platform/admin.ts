@@ -8,6 +8,7 @@ import {
   properties,
   reservations,
   roles,
+  roomQrCodes,
   rooms,
   serviceRequests,
   stays,
@@ -23,6 +24,8 @@ import { createPasswordResetLink } from "@/modules/account/security";
 import { writeAudit } from "@/modules/audit/service";
 import { getSubscriptionWithPlan, setSubscriptionStatus } from "@/modules/billing/subscription";
 import { createTenantWithOwner } from "@/modules/tenants/onboarding";
+import { decryptSecret } from "@/lib/crypto/secrets";
+import { SUPPORT_SESSION_MINUTES } from "@/lib/auth/support-cookie";
 import type { PlatformActor } from "./service";
 
 /**
@@ -541,10 +544,12 @@ export async function listPlatformAudit(
     .limit(limit);
 }
 
-export const supportSessionSchema = z.object({ reason: reasonSchema });
-export const SUPPORT_SESSION_MINUTES = 60;
+export const supportSessionSchema = z.object({ reason: reasonSchema, mode: z.enum(["view", "full"]).default("view") });
 
-/** Starts the read-only support view of one hotel (RBAC_PERMISSIONS.md: audited support mode). */
+/**
+ * Opens a hotel's own workspace for a super admin: "view" = read-only support view,
+ * "full" = log in as hotel admin (every permission). Both audited with a reason; 1 hour.
+ */
 export async function startSupportSession(db: Db, actor: PlatformActor, tenantId: string, raw: z.input<typeof supportSessionSchema>) {
   assertPlatformAdmin(actor);
   const input = supportSessionSchema.parse(raw);
@@ -554,9 +559,61 @@ export async function startSupportSession(db: Db, actor: PlatformActor, tenantId
     tenantId,
     actorUserId: actor.userId,
     actorType: "platform_admin",
-    action: "platform.support_view_started",
+    action: input.mode === "full" ? "platform.admin_access_started" : "platform.support_view_started",
     entityType: "tenant",
     entityId: tenantId,
     metadata: { reason: input.reason, minutes: SUPPORT_SESSION_MINUTES },
   });
+  return input.mode;
+}
+
+/** Every room's guest page link (for testing what guests see). Audited: links are bearer tokens. */
+export async function listGuestLinks(db: Db, actor: PlatformActor, tenantId: string) {
+  assertPlatformAdmin(actor);
+  if (!z.uuid().safeParse(tenantId).success) throw notFound("Hotel not found.");
+  const [t] = await db.select({ id: tenants.id, name: tenants.name }).from(tenants).where(eq(tenants.id, tenantId));
+  if (!t) throw notFound("Hotel not found.");
+  const rows = await db
+    .select({
+      propertyId: properties.id,
+      property: properties.name,
+      propertyStatus: properties.status,
+      roomId: rooms.id,
+      roomCode: rooms.roomCode,
+      tokenCiphertext: roomQrCodes.tokenCiphertext,
+    })
+    .from(rooms)
+    .innerJoin(properties, and(eq(properties.id, rooms.propertyId), eq(properties.tenantId, rooms.tenantId)))
+    .leftJoin(roomQrCodes, and(eq(roomQrCodes.roomId, rooms.id), eq(roomQrCodes.status, "active")))
+    .where(and(eq(rooms.tenantId, t.id), isNull(rooms.archivedAt)));
+  await writeAudit(db, {
+    tenantId: t.id,
+    actorUserId: actor.userId,
+    actorType: "platform_admin",
+    action: "platform.guest_links_viewed",
+    entityType: "tenant",
+    entityId: t.id,
+    metadata: { rooms: rows.length },
+  });
+  const byProperty = new Map<string, { id: string; name: string; active: boolean; rooms: { roomId: string; roomCode: string; path: string | null }[] }>();
+  for (const r of rows) {
+    const p = byProperty.get(r.propertyId) ?? { id: r.propertyId, name: r.property, active: r.propertyStatus === "active", rooms: [] };
+    let path: string | null = null;
+    if (r.tokenCiphertext) {
+      try {
+        path = `/r/${decryptSecret(r.tokenCiphertext)}`;
+      } catch {
+        path = null;
+      }
+    }
+    p.rooms.push({ roomId: r.roomId, roomCode: r.roomCode, path });
+    byProperty.set(r.propertyId, p);
+  }
+  const natural = new Intl.Collator(undefined, { numeric: true });
+  return {
+    tenant: t,
+    properties: [...byProperty.values()]
+      .sort((a, b) => natural.compare(a.name, b.name))
+      .map((p) => ({ ...p, rooms: p.rooms.sort((a, b) => natural.compare(a.roomCode, b.roomCode)) })),
+  };
 }

@@ -330,7 +330,9 @@ Super admins (`users.is_platform_admin`, two-step sign-in required) land on `/pl
 - **Hotels** (`/platform/tenants`): search/filter, **Add hotel** (owner gets a one-time set-password link), and per hotel:
   usage, subscription (change plan, extend trial, mark paid for offline payments), suspend/reactivate, edit details,
   staff with roles (turn access off/on, reset password, reset two-step), recent activity.
-- **Support view**: opens the hotel's own screens read-only for 1 hour (view permissions only, every write refused, audited).
+- **Log in as hotel admin**: full owner-level access to any hotel for 1 hour (reason required, red banner, audited).
+- **Read-only view**: the hotel's own screens with view permissions only (every write refused, audited).
+- **Open as a guest**: every room's guest page link for any hotel (audited), to see exactly what guests see.
 - **Users & staff** (`/platform/users`): every login across hotels; block/unblock, reset password/two-step, grant/remove super admin.
 - **Audit log** (`/platform/audit`): all hotels, filterable. Plans and Support pages as before.
 

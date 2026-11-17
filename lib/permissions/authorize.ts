@@ -25,6 +25,8 @@ export interface TenantContext {
   grants: readonly RoleGrant[];
   /** SaaS operator's audited, read-only support view (no membership; view grants only). */
   supportMode?: boolean;
+  /** Set when a super admin is inside this hotel without being on its staff. */
+  operatorMode?: "view" | "full";
 }
 
 export interface ResourceScope {

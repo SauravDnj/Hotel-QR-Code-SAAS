@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { serverEnv } from "@/lib/env";
 import { SUPPORT_TENANT_COOKIE } from "@/lib/auth/session";
+import { encodeSupportCookie, SUPPORT_SESSION_MINUTES } from "@/lib/auth/support-cookie";
 import {
   activateManually,
   changeTenantPlan,
@@ -13,7 +14,6 @@ import {
   setPlatformAdmin,
   setUserStatus,
   startSupportSession,
-  SUPPORT_SESSION_MINUTES,
   updateTenantProfile,
 } from "@/modules/platform/admin";
 import { toActionState, type ActionState } from "@/lib/actions";
@@ -169,14 +169,18 @@ export async function platformAdminAction(userId: string, _prev: ActionState, fo
   return { ok: true, message: "Super admin access updated." };
 }
 
-/** Opens the hotel's own screens read-only for 1 hour (audited). */
+/** Opens the hotel's own screens for 1 hour: read-only ("view") or as hotel admin ("full"). Audited. */
 export async function startSupportAction(tenantId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  let mode: "view" | "full";
   try {
-    await startSupportSession(getDb(), await requirePlatformAdmin(), tenantId, { reason: String(formData.get("reason") ?? "") });
+    mode = await startSupportSession(getDb(), await requirePlatformAdmin(), tenantId, {
+      reason: String(formData.get("reason") ?? ""),
+      mode: formData.get("mode") === "full" ? "full" : "view",
+    });
   } catch (err) {
     return fail(err);
   }
-  (await cookies()).set(SUPPORT_TENANT_COOKIE, tenantId, {
+  (await cookies()).set(SUPPORT_TENANT_COOKIE, encodeSupportCookie(tenantId, mode), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

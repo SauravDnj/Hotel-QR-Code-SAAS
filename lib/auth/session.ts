@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { getDb } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import type { TenantContext } from "@/lib/permissions/authorize";
+import { decodeSupportCookie } from "@/lib/auth/support-cookie";
 import { listUserTenants, loadSupportContext, loadTenantContext } from "@/modules/tenants/context";
 import type { PlatformActor } from "@/modules/platform/service";
 
@@ -54,11 +55,11 @@ export async function requireUser(): Promise<CurrentUser> {
 export const requireTenantContext = cache(async (): Promise<TenantContext> => {
   const user = await requireUser();
   const jar = await cookies();
-  const support = jar.get(SUPPORT_TENANT_COOKIE)?.value;
-  // Support view: only honoured for operators with two-step sign-in; the cookie names a hotel
-  // the operator could already see in the console, so forging it grants nothing new.
-  if (support && user.isPlatformAdmin && user.mfaEnabled && /^[0-9a-f-]{36}$/i.test(support)) {
-    const ctx = await loadSupportContext(getDb(), user.id, support);
+  // Super admin inside a hotel: signed, expiring cookie set by an audited action, and only
+  // honoured for platform admins with two-step sign-in.
+  const support = decodeSupportCookie(jar.get(SUPPORT_TENANT_COOKIE)?.value);
+  if (support && user.isPlatformAdmin && user.mfaEnabled) {
+    const ctx = await loadSupportContext(getDb(), user.id, support.tenantId, support.mode);
     if (ctx) return ctx;
   }
   const memberships = await listUserTenants(getDb(), user.id);

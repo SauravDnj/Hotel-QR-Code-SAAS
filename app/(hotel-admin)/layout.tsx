@@ -83,7 +83,7 @@ export default async function HotelAdminLayout({ children }: { children: React.R
             </Link>
           ))}
           {user.isPlatformAdmin && (
-            <Link href={ctx.supportMode ? `/platform/tenants/${ctx.tenantId}` : "/platform"} className="whitespace-nowrap rounded-ui px-3 py-2 text-sm hover:bg-surface-muted">
+            <Link href={ctx.operatorMode ? `/platform/tenants/${ctx.tenantId}` : "/platform"} className="whitespace-nowrap rounded-ui px-3 py-2 text-sm hover:bg-surface-muted">
               Platform console
             </Link>
           )}
@@ -91,7 +91,7 @@ export default async function HotelAdminLayout({ children }: { children: React.R
       </aside>
       <div className="flex min-w-0 flex-col">
         <header className="flex items-center justify-end gap-3 border-b border-border bg-surface px-5 py-3">
-          {ctx.supportMode ? (
+          {ctx.operatorMode ? (
             <span className="truncate text-sm text-muted-foreground">{user.email}</span>
           ) : (
             <>
@@ -109,12 +109,23 @@ export default async function HotelAdminLayout({ children }: { children: React.R
             </Button>
           </form>
         </header>
-        {ctx.supportMode && (
-          <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-warning bg-warning-surface px-5 py-2 text-sm font-medium text-warning">
-            <span>Super admin support view of {ctx.tenantName} · read-only · audited</span>
+        {ctx.operatorMode && (
+          <div
+            role="status"
+            className={
+              ctx.operatorMode === "full"
+                ? "flex flex-wrap items-center justify-between gap-2 border-b border-danger bg-danger-surface px-5 py-2 text-sm font-medium text-danger"
+                : "flex flex-wrap items-center justify-between gap-2 border-b border-warning bg-warning-surface px-5 py-2 text-sm font-medium text-warning"
+            }
+          >
+            <span>
+              {ctx.operatorMode === "full"
+                ? `Super admin logged in as hotel admin of ${ctx.tenantName} · full access · every change is audited`
+                : `Super admin support view of ${ctx.tenantName} · read-only · audited`}
+            </span>
             <form action={exitSupportAction.bind(null, ctx.tenantId)}>
               <Button size="sm" variant="secondary" type="submit">
-                Exit support view
+                Exit to super admin
               </Button>
             </form>
           </div>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/action-form";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge, Card, PageHeader } from "@/components/ui/card";
 import { requirePlatformAdmin } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
@@ -67,17 +67,40 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ t
         <Stat label="Open requests" value={usage.openRequests} />
       </section>
 
-      <Card>
-        <h2 className="mb-1 font-semibold">Open this hotel&apos;s workspace</h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          See the hotel exactly as staff do (dashboard, requests, rooms, front desk, reports). Read-only, recorded in the audit log, ends
-          after 1 hour.
-        </p>
-        <ActionForm action={startSupportAction.bind(null, tenant.id)} className="flex flex-wrap items-center gap-2" aria-label="Open support view">
-          <ReasonInput label="Why are you opening it? (audited)" className="w-80 max-w-full" />
-          <Button type="submit">Open support view</Button>
-        </ActionForm>
-      </Card>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <h2 className="mb-1 font-semibold">Log in as hotel admin</h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Full access, like the hotel owner: rooms, staff, settings, check-in/out, requests. Every change is recorded in the audit log. Ends after 1
+            hour.
+          </p>
+          <ActionForm action={startSupportAction.bind(null, tenant.id)} className="flex flex-col gap-2" aria-label="Log in as hotel admin">
+            <input type="hidden" name="mode" value="full" />
+            <ReasonInput label="Why? e.g. setup help, ticket ref (audited)" className="w-full" />
+            <Button type="submit">Log in as hotel admin</Button>
+          </ActionForm>
+        </Card>
+        <Card>
+          <h2 className="mb-1 font-semibold">View hotel (read-only)</h2>
+          <p className="mb-3 text-sm text-muted-foreground">See the hotel exactly as staff do without being able to change anything. Audited, 1 hour.</p>
+          <ActionForm action={startSupportAction.bind(null, tenant.id)} className="flex flex-col gap-2" aria-label="Open read-only view">
+            <input type="hidden" name="mode" value="view" />
+            <ReasonInput label="Why? (audited)" className="w-full" />
+            <Button type="submit" variant="secondary">
+              Open read-only view
+            </Button>
+          </ActionForm>
+        </Card>
+        <Card>
+          <h2 className="mb-1 font-semibold">Open as a guest</h2>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Open the page a guest sees after scanning any room&apos;s QR code: Wi-Fi, services, design. You can also send a test request.
+          </p>
+          <Link href={`/platform/tenants/${tenant.id}/guest`} className={buttonVariants({ variant: "secondary" })}>
+            Choose a room →
+          </Link>
+        </Card>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
